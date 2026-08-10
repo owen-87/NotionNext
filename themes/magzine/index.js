@@ -6,18 +6,17 @@ import replaceSearchResult from '@/components/Mark'
 import NotionPage from '@/components/NotionPage'
 import ShareBar from '@/components/ShareBar'
 import WWAds from '@/components/WWAds'
-import DashboardBody from '@/components/ui/dashboard/DashboardBody'
-import DashboardHeader from '@/components/ui/dashboard/DashboardHeader'
 import { siteConfig } from '@/lib/config'
 import { useGlobal } from '@/lib/global'
 import { isBrowser } from '@/lib/utils'
-import { SignIn, SignUp } from '@clerk/nextjs'
 import SmartLink from '@/components/SmartLink'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/router'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import ArticleInfo from './components/ArticleInfo'
 import { ArticleLock } from './components/ArticleLock'
 import BannerFullWidth from './components/BannerFullWidth'
+import Breadcrumbs from './components/Breadcrumbs'
 import CTA from './components/CTA'
 import Catalog from './components/Catalog'
 import CatalogFloat from './components/CatalogFloat'
@@ -39,6 +38,22 @@ import TouchMeCard from './components/TouchMeCard'
 import CONFIG from './config'
 import { Style } from './style'
 
+const ClerkSignIn = dynamic(
+  () => import('@clerk/nextjs').then(module => module.SignIn),
+  { ssr: false }
+)
+const ClerkSignUp = dynamic(
+  () => import('@clerk/nextjs').then(module => module.SignUp),
+  { ssr: false }
+)
+const DashboardHeader = dynamic(
+  () => import('@/components/ui/dashboard/DashboardHeader'),
+  { ssr: false }
+)
+const DashboardBody = dynamic(
+  () => import('@/components/ui/dashboard/DashboardBody'),
+  { ssr: false }
+)
 const IndexSkeleton = () => (
   <div className='pt-10 md:pt-18'>
     <div className='w-full bg-[#f6f6f1] dark:bg-black'>
@@ -55,7 +70,8 @@ const IndexSkeleton = () => (
             {[0, 1].map(item => (
               <div
                 key={item}
-                className='flex gap-6 border-t border-gray-300 pt-6 dark:border-gray-800'>
+                className='flex gap-6 border-t border-gray-300 pt-6 dark:border-gray-800'
+              >
                 <div className='min-w-0 flex-1 space-y-3'>
                   <div className='h-4 w-20 animate-pulse bg-gray-200 dark:bg-gray-800' />
                   <div className='h-6 w-4/5 animate-pulse bg-gray-200 dark:bg-gray-800' />
@@ -109,20 +125,24 @@ const LayoutBase = props => {
 
   return (
     <ThemeGlobalMagzine.Provider
-      value={{ searchModal, tocVisible, changeTocVisible }}>
+      value={{ searchModal, tocVisible, changeTocVisible }}
+    >
       {/* CSS样式 */}
       <Style />
 
       <div
         id='theme-magzine'
-        className={`${siteConfig('FONT_STYLE')} bg-white dark:bg-hexo-black-gray w-full h-full min-h-screen flex flex-col justify-between dark:text-gray-300 scroll-smooth`}>
+        className={`${siteConfig('FONT_STYLE')} bg-white dark:bg-hexo-black-gray w-full h-full min-h-screen flex flex-col justify-between dark:text-gray-300 scroll-smooth`}
+      >
         <main
           id='wrapper'
-          className='relative flex flex-col justify-between w-full h-full mx-auto'>
+          className='relative flex flex-col justify-between w-full h-full mx-auto'
+        >
           {/* 主区 */}
           <div
             id='container-wrapper'
-            className='w-full h-full min-h-screen flex flex-col relative z-10'>
+            className='w-full h-full min-h-screen flex flex-col relative z-10'
+          >
             <Header {...props} />
 
             <div
@@ -154,12 +174,13 @@ const LayoutBase = props => {
  */
 const LayoutIndex = props => {
   const posts = Array.isArray(props?.posts) ? props.posts : []
+  const { siteInfo } = props
 
   if (posts.length === 0) {
     return <IndexSkeleton />
   }
 
-   // ===== 1. Hero区域 =====
+  // ===== 1. Hero区域 =====
   const heroTopPosts = posts.slice(0, 1)
   const heroSubPosts = posts.slice(
     heroTopPosts.length,
@@ -167,20 +188,27 @@ const LayoutIndex = props => {
   )
 
   // ===== 2. 剩余文章 =====
-  const remainingPosts = posts.slice(
-    heroTopPosts.length + heroSubPosts.length
-  )
+  const remainingPosts = posts.slice(heroTopPosts.length + heroSubPosts.length)
 
   // ===== 3. 最新文章 =====
-  const newPosts = remainingPosts.slice(0, siteConfig('MAGZINE_LATEST_POST_COUNT', 4, CONFIG))
+  const newPosts = remainingPosts.slice(
+    0,
+    siteConfig('MAGZINE_LATEST_POST_COUNT', 4, CONFIG)
+  )
 
   return (
     <div className='pt-10 md:pt-18'>
+      <header className='max-w-screen-3xl mx-auto px-2 pb-8 lg:px-0'>
+        <h1 className='text-4xl font-bold tracking-tight'>
+          {siteInfo?.title || siteConfig('TITLE')}
+        </h1>
+        <p className='mt-3 max-w-3xl text-lg text-gray-600 dark:text-gray-400'>
+          {siteInfo?.description || siteConfig('DESCRIPTION')}
+        </p>
+      </header>
+
       {/* 首屏宣传区块 */}
-      <Hero
-        topPosts={heroTopPosts}
-        subPosts={heroSubPosts}
-      />
+      <Hero topPosts={heroTopPosts} subPosts={heroSubPosts} />
 
       {/* 最新文章区块 */}
       <PostSimpleListHorizontal
@@ -206,13 +234,25 @@ const LayoutIndex = props => {
  * @returns
  */
 const LayoutPostList = props => {
-  // 当前筛选的分类或标签
-  const { category, tag, NOTION_CONFIG } = props
+  const { category, tag, NOTION_CONFIG, postCount = 0, siteInfo } = props
+  const heading = category
+    ? `${category} 分类文章`
+    : tag
+      ? `${tag} 标签文章`
+      : '全部文章'
+  const description = category
+    ? `浏览「${category}」分类下的 ${postCount} 篇文章。`
+    : tag
+      ? `浏览带有「${tag}」标签的文章。`
+      : `浏览 ${siteInfo?.title || siteConfig('TITLE')} 发布的文章。`
 
   return (
-    <div className=' max-w-screen-3xl mx-auto w-full px-2 lg:px-0'>
-      {/* 一个顶部条 */}
-      <h2 className='py-8 text-2xl font-bold'>{category || tag}</h2>
+    <div className='max-w-screen-3xl mx-auto w-full px-2 lg:px-0'>
+      {category && <Breadcrumbs category={category} />}
+      <header className='py-8'>
+        <h1 className='text-3xl font-bold'>{heading}</h1>
+        <p className='mt-3 text-gray-600 dark:text-gray-400'>{description}</p>
+      </header>
 
       {siteConfig('POST_LIST_STYLE', 'page', NOTION_CONFIG) === 'page' ? (
         <PostListPage {...props} />
@@ -264,6 +304,8 @@ const LayoutSlug = props => {
           <div className='w-full max-w-screen-3xl mx-auto'>
             {post && (
               <>
+                <Breadcrumbs post={post} />
+
                 {/* 文章信息 */}
                 <ArticleInfo {...props} />
 
@@ -356,9 +398,7 @@ const LayoutSlug = props => {
               </>
             )}
 
-            {!post && (
-              <SlugSkeleton />
-            )}
+            {!post && <SlugSkeleton />}
           </div>
         )}
       </div>
@@ -406,7 +446,7 @@ const LayoutSearch = props => {
     <div className='max-w-screen-3xl w-full mx-auto'>
       {/* 搜索导航栏 */}
       <div className='py-12'>
-        <div className='pb-4 w-full'>{locale.NAV.SEARCH}</div>
+        <h1 className='pb-4 w-full text-3xl font-bold'>{locale.NAV.SEARCH}</h1>
         {!currentSearch && (
           <>
             <TagGroups {...props} />
@@ -439,6 +479,12 @@ const LayoutArchive = props => {
   return (
     <>
       <div className='w-full max-w-screen-3xl mx-auto mt-14 min-h-full'>
+        <header className='px-2 pb-8 lg:px-0'>
+          <h1 className='text-3xl font-bold'>文章归档</h1>
+          <p className='mt-3 text-gray-600 dark:text-gray-400'>
+            按发布时间浏览全部公开文章。
+          </p>
+        </header>
         {Object.keys(archivePosts)?.map(archiveTitle => (
           <PostGroupArchive
             key={archiveTitle}
@@ -459,8 +505,9 @@ const LayoutArchive = props => {
 const Layout404 = props => {
   return (
     <>
-      <div className='w-full py-40 flex justify-center items-center'>
-        404 Not found.
+      <div className='w-full py-40 text-center'>
+        <h1 className='text-4xl font-bold'>404</h1>
+        <p className='mt-3'>请求的页面不存在或已被移动。</p>
       </div>
       {/* 文章推荐  */}
       <PostListRecommend {...props} />
@@ -479,10 +526,12 @@ const LayoutCategoryIndex = props => {
   return (
     <div className='w-full max-w-screen-3xl mx-auto min-h-96'>
       <div className='bg-white dark:bg-gray-700 py-10'>
-        <div className='dark:text-gray-200 mb-5 text-2xl font-bold'>
-          {/* <i className='mr-4 fas fa-th' /> */}
-          {locale.COMMON.CATEGORY}:
-        </div>
+        <h1 className='dark:text-gray-200 text-3xl font-bold'>
+          {locale.COMMON.CATEGORY}
+        </h1>
+        <p className='mb-5 mt-3 text-gray-600 dark:text-gray-400'>
+          按主题分类浏览本站文章。
+        </p>
         <div id='category-list' className='duration-200 flex flex-wrap'>
           {categoryOptions?.map(category => {
             return (
@@ -490,11 +539,13 @@ const LayoutCategoryIndex = props => {
                 key={category.name}
                 href={`/category/${category.name}`}
                 passHref
-                legacyBehavior>
+                legacyBehavior
+              >
                 <div
                   className={
                     'hover:text-black dark:hover:text-white dark:text-gray-300 dark:hover:bg-gray-600 px-5 cursor-pointer py-2 hover:bg-gray-100'
-                  }>
+                  }
+                >
                   {/* <i className='mr-4 fas fa-folder' /> */}
                   {category.name}({category.count})
                 </div>
@@ -518,10 +569,12 @@ const LayoutTagIndex = props => {
   return (
     <div className='w-full max-w-screen-3xl mx-auto min-h-96'>
       <div className='bg-white dark:bg-gray-700 py-10'>
-        <div className='dark:text-gray-200 mb-5  text-2xl font-bold'>
-          {/* <i className='mr-4 fas fa-tag' /> */}
-          {locale.COMMON.TAGS}:
-        </div>
+        <h1 className='dark:text-gray-200 text-3xl font-bold'>
+          {locale.COMMON.TAGS}
+        </h1>
+        <p className='mb-5 mt-3 text-gray-600 dark:text-gray-400'>
+          浏览本站文章标签；标签聚合页不参与搜索引擎索引。
+        </p>
         <div id='tags-list' className='duration-200 flex flex-wrap'>
           {tagOptions?.map(tag => {
             return (
@@ -551,7 +604,7 @@ const LayoutSignIn = props => {
         {/* clerk预置表单 */}
         {enableClerk && (
           <div className='flex justify-center py-6'>
-            <SignIn />
+            <ClerkSignIn />
           </div>
         )}
         <div id='article-wrapper'>
@@ -577,7 +630,7 @@ const LayoutSignUp = props => {
         {/* clerk预置表单 */}
         {enableClerk && (
           <div className='flex justify-center py-6'>
-            <SignUp />
+            <ClerkSignUp />
           </div>
         )}
         <div id='article-wrapper'>

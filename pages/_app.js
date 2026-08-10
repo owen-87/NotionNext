@@ -8,6 +8,7 @@ import '@/styles/notion.css' //  重写部分notion样式
 
 import useAdjustStyle from '@/hooks/useAdjustStyle'
 import { GlobalContextProvider } from '@/lib/global'
+import { isPrivateRoute } from '@/lib/seo'
 import { getBaseLayoutByTheme } from '@/themes/theme'
 import { useRouter } from 'next/router'
 import { useCallback, useEffect, useMemo } from 'react'
@@ -18,17 +19,40 @@ import ErrorHandler from '@/lib/utils/errorHandler'
 import BLOG from '@/blog.config'
 import ExternalPlugins from '@/components/ExternalPlugins'
 import SEO from '@/components/SEO'
-import { zhCN } from '@clerk/localizations'
 import dynamic from 'next/dynamic'
-// import { ClerkProvider } from '@clerk/nextjs'
-const ClerkProvider = dynamic(() =>
-  import('@clerk/nextjs').then(m => m.ClerkProvider)
-)
+const ClerkPrivateApp = dynamic(() => import('@/components/ClerkPrivateApp'), {
+  ssr: false
+})
 const AppErrorBoundary = ErrorHandler.createErrorBoundary(
-  <div style={{ padding: '2rem', textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-    <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Something went wrong</h1>
-    <p style={{ color: '#666', marginBottom: '1.5rem' }}>An unexpected error occurred. Please refresh the page.</p>
-    <button onClick={() => window.location.reload()} style={{ padding: '0.5rem 1.5rem', cursor: 'pointer', border: '1px solid #ccc', borderRadius: '4px', background: 'transparent' }}>Refresh</button>
+  <div
+    style={{
+      padding: '2rem',
+      textAlign: 'center',
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}
+  >
+    <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
+      Something went wrong
+    </h1>
+    <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+      An unexpected error occurred. Please refresh the page.
+    </p>
+    <button
+      onClick={() => window.location.reload()}
+      style={{
+        padding: '0.5rem 1.5rem',
+        cursor: 'pointer',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        background: 'transparent'
+      }}
+    >
+      Refresh
+    </button>
   </div>
 )
 
@@ -81,26 +105,27 @@ const MyApp = ({ Component, pageProps }) => {
     [theme]
   )
 
-  const enableClerk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-  const content = (
+  const pageContent = (
     <AppErrorBoundary>
-      <GlobalContextProvider {...pageProps}>
+      <>
+        <SEO {...pageProps} />
         <GLayout {...pageProps}>
-          <SEO {...pageProps} />
           <Component {...pageProps} />
         </GLayout>
         <ExternalPlugins {...pageProps} />
-      </GlobalContextProvider>
+      </>
     </AppErrorBoundary>
   )
+
+  const enableClerk = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
+  if (enableClerk && isPrivateRoute(route.pathname)) {
+    return (
+      <ClerkPrivateApp pageProps={pageProps}>{pageContent}</ClerkPrivateApp>
+    )
+  }
+
   return (
-    <>
-      {enableClerk ? (
-        <ClerkProvider localization={zhCN}>{content}</ClerkProvider>
-      ) : (
-        content
-      )}
-    </>
+    <GlobalContextProvider {...pageProps}>{pageContent}</GlobalContextProvider>
   )
 }
 

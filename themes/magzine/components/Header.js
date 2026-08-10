@@ -1,9 +1,8 @@
 import Collapse from '@/components/Collapse'
 import DarkModeButton from '@/components/DarkModeButton'
-import DashboardButton from '@/components/ui/dashboard/DashboardButton'
 import { siteConfig } from '@/lib/config'
 import { useGlobal } from '@/lib/global'
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/router'
 import { useEffect, useRef, useState } from 'react'
 import { useMagzineGlobal } from '..'
@@ -12,6 +11,20 @@ import LogoBar from './LogoBar'
 import { MenuBarMobile } from './MenuBarMobile'
 import { MenuItemDrop } from './MenuItemDrop'
 
+const ClerkAuthControls = dynamic(
+  () =>
+    import('@/components/ClerkAuthControls').then(
+      module => module.ClerkAuthControls
+    ),
+  { ssr: false }
+)
+const StandaloneClerkAuthControls = dynamic(
+  () =>
+    import('@/components/ClerkAuthControls').then(
+      module => module.StandaloneClerkAuthControls
+    ),
+  { ssr: false }
+)
 /**
  * 顶部导航栏 + 菜单
  * @param {} param0
@@ -21,7 +34,7 @@ export default function Header(props) {
   const { customNav, customMenu } = props
   const [isOpen, setOpen] = useState(false)
   const collapseRef = useRef(null)
-  const { locale } = useGlobal()
+  const { locale, clerkProviderActive } = useGlobal()
   const router = useRouter()
   const { searchModal } = useMagzineGlobal()
 
@@ -98,11 +111,13 @@ export default function Header(props) {
       id='top-navbar-wrapper'
       className={
         'sticky top-0 w-full z-40 shadow bg-white dark:bg-hexo-black-gray '
-      }>
+      }
+    >
       {/* 导航栏菜单内容 */}
       <div
         id='top-navbar'
-        className='px-4 lg:px-0 flex w-full mx-auto max-w-screen-3xl h-20 transition-all duration-200 items-center justify-between'>
+        className='px-4 lg:px-0 flex w-full mx-auto max-w-screen-3xl h-20 transition-all duration-200 items-center justify-between'
+      >
         {/* 搜索栏 */}
         {showSearchInput && (
           <input
@@ -140,14 +155,16 @@ export default function Header(props) {
           {/* 搜索按钮 */}
           <div
             onClick={toggleShowSearchInput}
-            className='flex text-center items-center cursor-pointer p-2.5 hover:bg-black hover:bg-opacity-10 rounded-full'>
+            className='flex text-center items-center cursor-pointer p-2.5 hover:bg-black hover:bg-opacity-10 rounded-full'
+          >
             <i
               className={
                 showSearchInput
                   ? 'fa-regular fa-circle-xmark'
                   : 'fa-solid fa-magnifying-glass' +
                     ' align-middle hover:scale-110 transform duration-200'
-              }></i>
+              }
+            ></i>
           </div>
 
           {/* 深色模式切换 */}
@@ -167,21 +184,14 @@ export default function Header(props) {
           </div>
 
           {/* 登录相关 */}
-          {enableClerk && (
-            <>
-              <SignedOut>
-                <SignInButton mode='modal'>
-                  <button className='bg-gray-800 hover:bg-gray-900 text-white rounded-lg px-3 py-2'>
-                    {locale.COMMON.SIGN_IN}
-                  </button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <UserButton />
-                <DashboardButton />
-              </SignedIn>
-            </>
-          )}
+          {enableClerk &&
+            (clerkProviderActive ? (
+              <ClerkAuthControls signInLabel={locale.COMMON.SIGN_IN} />
+            ) : (
+              <StandaloneClerkAuthControls
+                signInLabel={locale.COMMON.SIGN_IN}
+              />
+            ))}
         </div>
       </div>
 
@@ -190,7 +200,8 @@ export default function Header(props) {
         type='vertical'
         collapseRef={collapseRef}
         isOpen={isOpen}
-        className='md:hidden'>
+        className='md:hidden'
+      >
         <div className='bg-white dark:bg-hexo-black-gray pt-1 py-2'>
           <MenuBarMobile
             {...props}

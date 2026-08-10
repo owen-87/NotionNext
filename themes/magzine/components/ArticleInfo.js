@@ -22,7 +22,8 @@ export default function ArticleInfo(props) {
           <div
             className={
               'flex min-w-0 flex-1 items-center justify-start flex-nowrap overflow-x-auto scroll-hidden gap-x-3 text-gray-400'
-            }>
+            }
+          >
             {siteConfig('MAGZINE_POST_LIST_TAG') &&
               post?.tagItems?.map(tag => (
                 <TagItemMini key={tag.name} tag={tag} />
@@ -31,12 +32,12 @@ export default function ArticleInfo(props) {
         </div>
 
         {/* title */}
-        <h2 className='text-4xl text-center dark:text-gray-300'>
+        <h1 className='text-4xl text-center dark:text-gray-300'>
           {siteConfig('POST_TITLE_ICON') && (
             <NotionIcon icon={post?.pageIcon} />
           )}
           {post?.title}
-        </h2>
+        </h1>
 
         <div className='text-xl text-center'>{post?.summary}</div>
       </div>

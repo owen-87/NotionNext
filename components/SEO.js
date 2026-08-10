@@ -1,467 +1,509 @@
+import BLOG from '@/blog.config'
 import { siteConfig } from '@/lib/config'
 import { useGlobal } from '@/lib/global'
-import { createSiteUrl, normalizeSiteUrl } from '@/lib/sitemap-utils'
-import { isHttpLink, loadExternalResource } from '@/lib/utils'
+import {
+  buildCanonicalUrl,
+  cleanSeoText,
+  getCategoryNames,
+  getRobotsPolicy,
+  normalizeCanonicalPath,
+  normalizeSiteUrl,
+  toAbsoluteUrl,
+  toIsoDate
+} from '@/lib/seo'
+import { loadExternalResource } from '@/lib/utils'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useEffect } from 'react'
 
-/**
- * 页面的Head头，有用于SEO
- * @param {*} param0
- * @returns
- */
 const SEO = props => {
-  const { children, siteInfo, post, NOTION_CONFIG } = props
-  const PATH = siteConfig('PATH')
-  const LINK = normalizeSiteUrl(
-    siteConfig('LINK', siteInfo?.link, NOTION_CONFIG)
-  )
-  const SUB_PATH = siteConfig('SUB_PATH', '')
-  let url = PATH?.length ? createSiteUrl(LINK, SUB_PATH) || LINK : LINK
-  let image
+  const { siteInfo = {}, post, NOTION_CONFIG } = props
   const router = useRouter()
-  const meta = getSEOMeta(props, router, useGlobal()?.locale)
-  const webFontUrl = siteConfig('FONT_URL')
-  const hasWebFontUrl = Array.isArray(webFontUrl)
-    ? webFontUrl.filter(Boolean).length > 0
-    : Boolean(webFontUrl)
+  const global = useGlobal()
+  const locale = global?.locale || {}
+  const meta = getSEOMeta(props, router, locale)
+  const language = siteConfig('LANG', BLOG.LANG, NOTION_CONFIG) || BLOG.LANG
+  const siteUrl = normalizeSiteUrl(BLOG.LINK)
+
+  const canonicalUrl = buildCanonicalUrl(
+    siteUrl,
+    router.asPath,
+    meta.path,
+    language
+  )
+  const defaultImage = siteConfig(
+    'OG_IMAGE',
+    BLOG.OG_IMAGE || '/bg_image.jpg',
+    NOTION_CONFIG
+  )
+  const imageUrl = toAbsoluteUrl(meta.image || defaultImage, siteUrl)
+  const title = cleanSeoText(
+    meta.title || siteInfo?.title || siteConfig('TITLE'),
+    70
+  )
+  const description = cleanSeoText(
+    meta.description || siteInfo?.description || title,
+    160
+  )
+  const author = siteConfig('AUTHOR', BLOG.AUTHOR, NOTION_CONFIG)
+  const authorUrl = toAbsoluteUrl(
+    siteConfig('AUTHOR_URL', '/about', NOTION_CONFIG),
+    siteUrl,
+    '/about'
+  )
+  const logoUrl = toAbsoluteUrl(
+    siteInfo?.icon || siteConfig('AVATAR', '/avatar.png', NOTION_CONFIG),
+    siteUrl,
+    '/avatar.png'
+  )
+  const robots = getRobotsPolicy({
+    route: router.route,
+    asPath: router.asPath,
+    post,
+    isFallback: router.isFallback
+  })
+  const favicon = siteConfig('BLOG_FAVICON', BLOG.BLOG_FAVICON, NOTION_CONFIG)
+  const configuredWebFontUrls = siteConfig('FONT_URL', [], NOTION_CONFIG)
+  const webFontUrlsKey = (
+    Array.isArray(configuredWebFontUrls)
+      ? configuredWebFontUrls
+      : [configuredWebFontUrls]
+  )
+    .filter(Boolean)
+    .join('\\n')
+  const googleVerification = siteConfig(
+    'SEO_GOOGLE_SITE_VERIFICATION',
+    null,
+    NOTION_CONFIG
+  )
+  const baiduVerification = siteConfig(
+    'SEO_BAIDU_SITE_VERIFICATION',
+    null,
+    NOTION_CONFIG
+  )
+  const twitterSite = siteConfig('TWITTER_SITE', '', NOTION_CONFIG)
+  const twitterCreator = siteConfig('TWITTER_CREATOR', '', NOTION_CONFIG)
+  const webMentionEnabled = siteConfig(
+    'COMMENT_WEBMENTION_ENABLE',
+    false,
+    NOTION_CONFIG
+  )
+  const webMentionHostname = siteConfig(
+    'COMMENT_WEBMENTION_HOSTNAME',
+    '',
+    NOTION_CONFIG
+  )
+  const webMentionAuth = siteConfig(
+    'COMMENT_WEBMENTION_AUTH',
+    '',
+    NOTION_CONFIG
+  )
+  const analyticsBusuanziEnabled = siteConfig(
+    'ANALYTICS_BUSUANZI_ENABLE',
+    false,
+    NOTION_CONFIG
+  )
+  const structuredData = generateStructuredData({
+    meta,
+    siteInfo,
+    siteUrl,
+    canonicalUrl,
+    imageUrl,
+    logoUrl,
+    author,
+    authorUrl,
+    language,
+    sameAs: [
+      siteConfig('CONTACT_GITHUB'),
+      siteConfig('CONTACT_TWITTER'),
+      siteConfig('CONTACT_LINKEDIN'),
+      siteConfig('CONTACT_YOUTUBE')
+    ].filter(Boolean)
+  })
 
   useEffect(() => {
-    if (!hasWebFontUrl) return
-
+    if (!webFontUrlsKey) return
+    const webFontUrls = webFontUrlsKey.split('\\n').filter(Boolean)
     const timeoutId = window.setTimeout(() => {
-      // 使用WebFontLoader字体加载
       loadExternalResource(
         'https://cdnjs.cloudflare.com/ajax/libs/webfont/1.6.28/webfontloader.js',
         'js'
-      ).then(url => {
-        const WebFont = window?.WebFont
-        if (WebFont) {
-          // console.log('LoadWebFont', webFontUrl)
-          WebFont.load({
-            custom: {
-              // families: ['"LXGW WenKai"'],
-              urls: webFontUrl
-            }
-          })
+      ).then(() => {
+        if (window.WebFont) {
+          window.WebFont.load({ custom: { urls: webFontUrls } })
         }
       })
     }, 1500)
 
     return () => window.clearTimeout(timeoutId)
-  }, [hasWebFontUrl, webFontUrl])
+  }, [webFontUrlsKey])
 
-  // SEO关键词
-  const KEYWORDS = siteConfig('KEYWORDS')
-  let keywords = meta?.tags || KEYWORDS
-  if (post?.tags && post?.tags?.length > 0) {
-    keywords = post?.tags?.join(',')
-  }
-  if (meta) {
-    url = createSiteUrl(url, meta.slug) || url
-    image = getAbsoluteImageUrl(meta.image || '/bg_image.jpg', LINK)
-  }
-  const TITLE = siteConfig('TITLE')
-  const title = meta?.title || TITLE
-  const description = meta?.description || `${siteInfo?.description}`
-  const type = meta?.type === 'Post' ? 'article' : meta?.type || 'website'
-  const language =
-    router?.locale || siteConfig('LANG', 'zh-CN', NOTION_CONFIG)
-  const lang = String(language).replace('-', '_') // Facebook OpenGraph 要 zh_CN 這樣的格式才抓得到語言
-  const category = Array.isArray(meta?.category)
-    ? meta?.category?.[0]
-    : meta?.category || KEYWORDS // section 主要是像是 category 這樣的分類，Facebook 用這個來抓連結的分類
-  const favicon = siteConfig('BLOG_FAVICON')
-  const BACKGROUND_DARK = siteConfig('BACKGROUND_DARK', '', NOTION_CONFIG)
+  const openGraphLocale = String(language).replace('-', '_')
+  const isArticle = meta.type === 'article'
 
-  const SEO_BAIDU_SITE_VERIFICATION = siteConfig(
-    'SEO_BAIDU_SITE_VERIFICATION',
-    null,
-    NOTION_CONFIG
-  )
-
-  const SEO_GOOGLE_SITE_VERIFICATION = siteConfig(
-    'SEO_GOOGLE_SITE_VERIFICATION',
-    null,
-    NOTION_CONFIG
-  )
-
-  const BLOG_FAVICON = siteConfig('BLOG_FAVICON', null, NOTION_CONFIG)
-
-  const COMMENT_WEBMENTION_ENABLE = siteConfig(
-    'COMMENT_WEBMENTION_ENABLE',
-    null,
-    NOTION_CONFIG
-  )
-
-  const COMMENT_WEBMENTION_HOSTNAME = siteConfig(
-    'COMMENT_WEBMENTION_HOSTNAME',
-    null,
-    NOTION_CONFIG
-  )
-  const COMMENT_WEBMENTION_AUTH = siteConfig(
-    'COMMENT_WEBMENTION_AUTH',
-    null,
-    NOTION_CONFIG
-  )
-  const ANALYTICS_BUSUANZI_ENABLE = siteConfig(
-    'ANALYTICS_BUSUANZI_ENABLE',
-    null,
-    NOTION_CONFIG
-  )
-
-  const FACEBOOK_PAGE = siteConfig('FACEBOOK_PAGE', null, NOTION_CONFIG)
-  const TWITTER_SITE = siteConfig('TWITTER_SITE', '', NOTION_CONFIG)
-  const TWITTER_CREATOR = siteConfig('TWITTER_CREATOR', '', NOTION_CONFIG)
-
-  const AUTHOR = siteConfig('AUTHOR')
   return (
     <Head>
-      <link rel='icon' href={favicon} />
       <title>{title}</title>
-      <meta name='theme-color' content={BACKGROUND_DARK} />
+      <link rel='canonical' href={canonicalUrl} />
+      <link rel='icon' href={favicon} />
+      <meta charSet='UTF-8' />
       <meta
         name='viewport'
         content='width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0'
       />
-      <meta name='robots' content='follow, index, max-snippet:-1, max-image-preview:large, max-video-preview:-1' />
-      <meta charSet='UTF-8' />
-      <meta name='format-detection' content='telephone=no' />
-      <meta name='mobile-web-app-capable' content='yes' />
-      <meta name='apple-mobile-web-app-capable' content='yes' />
-      <meta name='apple-mobile-web-app-status-bar-style' content='default' />
-      <meta name='apple-mobile-web-app-title' content={title} />
-
-      {/* 搜索引擎验证 */}
-      {SEO_GOOGLE_SITE_VERIFICATION && (
-        <meta
-          name='google-site-verification'
-          content={SEO_GOOGLE_SITE_VERIFICATION}
-        />
-      )}
-      {SEO_BAIDU_SITE_VERIFICATION && (
-        <meta
-          name='baidu-site-verification'
-          content={SEO_BAIDU_SITE_VERIFICATION}
-        />
-      )}
-
-      {/* 基础SEO元数据 */}
-      <link rel='canonical' href={url} />
-      <meta name='keywords' content={keywords} />
       <meta name='description' content={description} />
-      <meta name='author' content={AUTHOR} />
-      <meta name='generator' content='NotionNext' />
-
-      {/* 语言和地区 */}
       <meta httpEquiv='content-language' content={language} />
-      <meta name='geo.region' content={siteConfig('GEO_REGION', 'CN')} />
-      <meta name='geo.country' content={siteConfig('GEO_COUNTRY', 'CN')} />
-      {/* Open Graph 元数据 */}
-      <meta property='og:locale' content={lang} />
+      <meta name='author' content={author} />
+      <meta name='robots' content={robots} />
+      <meta name='googlebot' content={robots} />
+      <meta name='format-detection' content='telephone=no' />
+      <meta
+        name='theme-color'
+        content={siteConfig('BACKGROUND_DARK', '#000000')}
+      />
+
+      {googleVerification && (
+        <meta name='google-site-verification' content={googleVerification} />
+      )}
+      {baiduVerification && (
+        <meta name='baidu-site-verification' content={baiduVerification} />
+      )}
+
+      <meta property='og:locale' content={openGraphLocale} />
       <meta property='og:title' content={title} />
       <meta property='og:description' content={description} />
-      <meta property='og:url' content={url} />
-      <meta property='og:image' content={image} />
-      <meta property='og:image:width' content='1200' />
-      <meta property='og:image:height' content='630' />
+      <meta property='og:url' content={canonicalUrl} />
+      <meta property='og:image' content={imageUrl} />
+      <meta property='og:image:secure_url' content={imageUrl} />
       <meta property='og:image:alt' content={title} />
-      <meta property='og:site_name' content={siteConfig('TITLE')} />
-      <meta property='og:type' content={type} />
+      <meta property='og:site_name' content={siteInfo?.title || title} />
+      <meta property='og:type' content={isArticle ? 'article' : 'website'} />
 
-      {/* Twitter Card 元数据 */}
       <meta name='twitter:card' content='summary_large_image' />
-      {TWITTER_SITE && <meta name='twitter:site' content={TWITTER_SITE} />}
-      {TWITTER_CREATOR && (
-        <meta name='twitter:creator' content={TWITTER_CREATOR} />
+      {twitterSite && <meta name='twitter:site' content={twitterSite} />}
+      {twitterCreator && (
+        <meta name='twitter:creator' content={twitterCreator} />
       )}
       <meta name='twitter:title' content={title} />
       <meta name='twitter:description' content={description} />
-      <meta name='twitter:image' content={image} />
+      <meta name='twitter:image' content={imageUrl} />
       <meta name='twitter:image:alt' content={title} />
 
-      <link rel='icon' href={BLOG_FAVICON} />
-
-      {COMMENT_WEBMENTION_ENABLE && (
+      {webMentionEnabled && webMentionHostname && (
         <>
           <link
             rel='webmention'
-            href={`https://webmention.io/${COMMENT_WEBMENTION_HOSTNAME}/webmention`}
+            href={`https://webmention.io/${webMentionHostname}/webmention`}
           />
           <link
             rel='pingback'
-            href={`https://webmention.io/${COMMENT_WEBMENTION_HOSTNAME}/xmlrpc`}
+            href={`https://webmention.io/${webMentionHostname}/xmlrpc`}
           />
-          {COMMENT_WEBMENTION_AUTH && (
-            <link href={COMMENT_WEBMENTION_AUTH} rel='me' />
-          )}
+          {webMentionAuth && <link href={webMentionAuth} rel='me' />}
         </>
       )}
-
-      {ANALYTICS_BUSUANZI_ENABLE && (
+      {analyticsBusuanziEnabled && (
         <meta name='referrer' content='no-referrer-when-downgrade' />
       )}
-      {/* 文章特定元数据 */}
-      {meta?.type === 'Post' && (
+
+      {isArticle && (
         <>
-          {meta.publishTime && (
-            <meta property='article:published_time' content={meta.publishTime} />
-          )}
-          {meta.modifiedTime && (
+          {meta.publishDate && (
             <meta
-              property='article:modified_time'
-              content={meta.modifiedTime}
+              property='article:published_time'
+              content={meta.publishDate}
             />
           )}
-          <meta property='article:author' content={AUTHOR} />
-          <meta property='article:section' content={category} />
-          <meta property='article:tag' content={keywords} />
-          {FACEBOOK_PAGE && (
-            <meta property='article:publisher' content={FACEBOOK_PAGE} />
+          {meta.modifiedDate && (
+            <meta
+              property='article:modified_time'
+              content={meta.modifiedDate}
+            />
           )}
+          <meta property='article:author' content={authorUrl} />
+          {meta.category && (
+            <meta property='article:section' content={meta.category} />
+          )}
+          {meta.tags?.map(tag => (
+            <meta key={tag} property='article:tag' content={tag} />
+          ))}
         </>
       )}
 
-      {/* 结构化数据 */}
       <script
+        id='site-structured-data'
         type='application/ld+json'
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
-            generateStructuredData(meta, siteInfo, url, image, AUTHOR, LINK)
-          )
+          __html: JSON.stringify(structuredData).replace(/</g, '\\u003c')
         }}
       />
 
-      {/* DNS预取和预连接 */}
-      {hasWebFontUrl && <link rel='dns-prefetch' href='//fonts.googleapis.com' />}
-      <link rel='dns-prefetch' href='//www.google-analytics.com' />
-      <link rel='dns-prefetch' href='//www.googletagmanager.com' />
-      {hasWebFontUrl && (
-        <link
-          rel='preconnect'
-          href='https://fonts.gstatic.com'
-          crossOrigin='anonymous'
-        />
-      )}
-
-      {children}
+      <link rel='dns-prefetch' href='//fonts.googleapis.com' />
+      <link
+        rel='preconnect'
+        href='https://fonts.gstatic.com'
+        crossOrigin='anonymous'
+      />
     </Head>
   )
 }
 
-/**
- * 生成结构化数据
- * @param {*} meta
- * @param {*} siteInfo
- * @param {*} url
- * @param {*} image
- * @param {*} author
- * @returns
- */
-export const generateStructuredData = (
+export function generateStructuredData({
   meta,
   siteInfo,
-  url,
-  image,
+  siteUrl,
+  canonicalUrl,
+  imageUrl,
+  logoUrl,
   author,
-  siteUrl
-) => {
-  const baseData = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: siteInfo?.title,
-    description: siteInfo?.description,
-    url: siteUrl,
-    author: {
-      '@type': 'Person',
-      name: author
-    },
-    publisher: {
+  authorUrl,
+  language,
+  sameAs = []
+}) {
+  const organizationId = `${siteUrl}/#organization`
+  const personId = `${siteUrl}/#person`
+  const websiteId = `${siteUrl}/#website`
+  const webPageId = `${canonicalUrl}#webpage`
+  const siteName = cleanSeoText(siteInfo?.title || author, 70)
+  const description = cleanSeoText(
+    meta.description || siteInfo?.description || siteName,
+    160
+  )
+  const breadcrumbs = buildBreadcrumbs(meta, canonicalUrl, siteUrl)
+  const graph = [
+    {
       '@type': 'Organization',
-      name: siteInfo?.title,
+      '@id': organizationId,
+      name: siteName,
+      url: siteUrl,
       logo: {
         '@type': 'ImageObject',
-        url: getAbsoluteImageUrl(siteInfo?.icon, siteUrl)
+        url: logoUrl
       }
+    },
+    {
+      '@type': 'Person',
+      '@id': personId,
+      name: author,
+      url: authorUrl,
+      image: logoUrl,
+      ...(sameAs.length > 0 ? { sameAs } : {})
+    },
+    {
+      '@type': 'WebSite',
+      '@id': websiteId,
+      url: siteUrl,
+      name: siteName,
+      description: cleanSeoText(siteInfo?.description, 160),
+      inLanguage: language,
+      publisher: { '@id': organizationId },
+      author: { '@id': personId }
     }
+  ]
+
+  const webPage = {
+    '@type':
+      normalizeCanonicalPath(new URL(canonicalUrl).pathname) === '/about'
+        ? 'ProfilePage'
+        : 'WebPage',
+    '@id': webPageId,
+    url: canonicalUrl,
+    name: meta.title,
+    description,
+    inLanguage: language,
+    isPartOf: { '@id': websiteId },
+    ...(breadcrumbs.length > 1
+      ? { breadcrumb: { '@id': `${canonicalUrl}#breadcrumb` } }
+      : {})
+  }
+  if (webPage['@type'] === 'ProfilePage') {
+    webPage.mainEntity = { '@id': personId }
+  }
+  graph.push(webPage)
+
+  if (breadcrumbs.length > 1) {
+    graph.push({
+      '@type': 'BreadcrumbList',
+      '@id': `${canonicalUrl}#breadcrumb`,
+      itemListElement: breadcrumbs.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.name,
+        item: item.url
+      }))
+    })
   }
 
-  // 如果是文章页面，添加文章结构化数据
-  if (meta?.type === 'Post') {
-    return {
-      '@context': 'https://schema.org',
+  if (meta.type === 'article') {
+    graph.push({
       '@type': 'BlogPosting',
+      '@id': `${canonicalUrl}#article`,
       headline: meta.title,
-      description: meta.description,
-      image: image,
-      url: url,
-      datePublished: meta.publishTime,
-      dateModified: meta.modifiedTime || meta.publishTime,
-      author: {
-        '@type': 'Person',
-        name: author
-      },
-      publisher: {
-        '@type': 'Organization',
-        name: siteInfo?.title,
-        logo: {
-          '@type': 'ImageObject',
-          url: getAbsoluteImageUrl(siteInfo?.icon, siteUrl)
-        }
-      },
-      mainEntityOfPage: {
-        '@type': 'WebPage',
-        '@id': url
-      },
-      keywords: meta.tags?.join(', '),
-      articleSection: meta.category
-    }
+      description,
+      image: [imageUrl],
+      url: canonicalUrl,
+      mainEntityOfPage: { '@id': webPageId },
+      isPartOf: { '@id': websiteId },
+      author: { '@id': personId },
+      publisher: { '@id': organizationId },
+      ...(meta.publishDate ? { datePublished: meta.publishDate } : {}),
+      ...(meta.modifiedDate ? { dateModified: meta.modifiedDate } : {}),
+      ...(meta.category ? { articleSection: meta.category } : {}),
+      ...(meta.tags?.length ? { keywords: meta.tags } : {}),
+      inLanguage: language
+    })
   }
 
-  return baseData
+  return { '@context': 'https://schema.org', '@graph': graph }
 }
 
-const getAbsoluteImageUrl = (image, siteUrl) => {
-  if (typeof image !== 'string') return ''
+function buildBreadcrumbs(meta, canonicalUrl, siteUrl) {
+  const breadcrumbs = [{ name: '首页', url: `${siteUrl}/` }]
+  const category = meta.category
 
-  const rawImage = image.trim()
-  if (!rawImage) return ''
-  if (isHttpLink(rawImage) || rawImage.startsWith('data:')) {
-    return rawImage
+  if (meta.type === 'article' && category) {
+    breadcrumbs.push({
+      name: category,
+      url: `${siteUrl}/category/${encodeURIComponent(category)}`
+    })
+  } else if (meta.routeType === 'category-detail') {
+    breadcrumbs.push({ name: '分类', url: `${siteUrl}/category` })
   }
 
-  return createSiteUrl(siteUrl, rawImage) || rawImage
+  if (canonicalUrl !== `${siteUrl}/`) {
+    breadcrumbs.push({ name: meta.title, url: canonicalUrl })
+  }
+  return breadcrumbs
 }
 
-const getIsoTime = value => {
-  if (!value) return undefined
+export function getSEOMeta(props, router, locale = {}) {
+  const { post, siteInfo = {}, tag, category, page, postCount } = props
+  const siteTitle = cleanSeoText(siteInfo?.title || siteConfig('TITLE'), 50)
+  const siteDescription = cleanSeoText(
+    siteInfo?.description || siteConfig('DESCRIPTION'),
+    160
+  )
+  const archiveLabel = locale?.NAV?.ARCHIVE || '归档'
+  const searchLabel = locale?.NAV?.SEARCH || '搜索'
+  const tagsLabel = locale?.COMMON?.TAGS || '标签'
+  const categoryLabel = locale?.COMMON?.CATEGORY || '分类'
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return undefined
-
-  return date.toISOString()
-}
-
-/**
- * 获取SEO信息
- * @param {*} props
- * @param {*} router
- */
-const getSEOMeta = (props, router, locale) => {
-  const { post, siteInfo, tag, category, page } = props
-  const keyword = router?.query?.s
-
-  const TITLE = siteConfig('TITLE')
   switch (router.route) {
     case '/':
       return {
-        title: `${siteInfo?.title} | ${siteInfo?.description}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: '',
-        type: 'website'
+        title: `${siteTitle} | ${siteDescription}`,
+        description: siteDescription,
+        image: siteInfo?.pageCover,
+        path: '/',
+        type: 'website',
+        routeType: 'home'
       }
     case '/archive':
       return {
-        title: `${locale.NAV.ARCHIVE} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'archive',
-        type: 'website'
+        title: `${archiveLabel} | ${siteTitle}`,
+        description: `按时间浏览 ${siteTitle} 已发布的文章。${siteDescription}`,
+        image: siteInfo?.pageCover,
+        path: '/archive',
+        type: 'website',
+        routeType: 'archive'
       }
     case '/page/[page]':
       return {
-        title: `${page} | Page | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'page/' + page,
-        type: 'website'
+        title: `第 ${page} 页 | ${siteTitle}`,
+        description: `${siteTitle} 文章列表第 ${page} 页。`,
+        image: siteInfo?.pageCover,
+        path: `/page/${page}`,
+        type: 'website',
+        routeType: 'pagination'
       }
     case '/category/[category]':
-      return {
-        title: `${category} | ${locale.COMMON.CATEGORY} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        slug: 'category/' + category,
-        image: `${siteInfo?.pageCover}`,
-        type: 'website'
-      }
     case '/category/[category]/page/[page]':
       return {
-        title: `${category} | ${locale.COMMON.CATEGORY} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        slug: 'category/' + category,
-        image: `${siteInfo?.pageCover}`,
-        type: 'website'
+        title: `${category} | ${categoryLabel} | ${siteTitle}`,
+        description: `浏览 ${siteTitle}「${category}」分类下的 ${postCount || 0} 篇文章。`,
+        image: siteInfo?.pageCover,
+        path: `/category/${encodeURIComponent(category || '')}`,
+        type: 'website',
+        routeType: 'category-detail',
+        category
       }
     case '/tag/[tag]':
     case '/tag/[tag]/page/[page]':
       return {
-        title: `${tag} | ${locale.COMMON.TAGS} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'tag/' + tag,
-        type: 'website'
+        title: `${tag} | ${tagsLabel} | ${siteTitle}`,
+        description: `浏览 ${siteTitle} 中带有「${tag}」标签的文章。`,
+        image: siteInfo?.pageCover,
+        path: `/tag/${encodeURIComponent(tag || '')}`,
+        type: 'website',
+        routeType: 'tag-detail'
       }
     case '/search':
-      return {
-        title: `${keyword || ''}${keyword ? ' | ' : ''}${locale.NAV.SEARCH} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'search',
-        type: 'website'
-      }
     case '/search/[keyword]':
-    case '/search/[keyword]/page/[page]':
+    case '/search/[keyword]/page/[page]': {
+      const keyword = router?.query?.s || router?.query?.keyword || ''
       return {
-        title: `${keyword || ''}${keyword ? ' | ' : ''}${locale.NAV.SEARCH} | ${siteInfo?.title}`,
-        description: TITLE,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'search/' + (keyword || ''),
-        type: 'website'
+        title: `${keyword ? `${keyword} | ` : ''}${searchLabel} | ${siteTitle}`,
+        description: `在 ${siteTitle} 中搜索${keyword ? `“${keyword}”` : '文章'}。`,
+        image: siteInfo?.pageCover,
+        path: keyword ? `/search/${encodeURIComponent(keyword)}` : '/search',
+        type: 'website',
+        routeType: 'search'
       }
-    case '/404':
-      return {
-        title: `${siteInfo?.title} | ${locale.NAV.PAGE_NOT_FOUND}`,
-        image: `${siteInfo?.pageCover}`
-      }
+    }
     case '/tag':
       return {
-        title: `${locale.COMMON.TAGS} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'tag',
-        type: 'website'
+        title: `${tagsLabel} | ${siteTitle}`,
+        description: `浏览 ${siteTitle} 的文章标签。`,
+        image: siteInfo?.pageCover,
+        path: '/tag',
+        type: 'website',
+        routeType: 'tag-index'
       }
     case '/category':
       return {
-        title: `${locale.COMMON.CATEGORY} | ${siteInfo?.title}`,
-        description: `${siteInfo?.description}`,
-        image: `${siteInfo?.pageCover}`,
-        slug: 'category',
-        type: 'website'
+        title: `${categoryLabel} | ${siteTitle}`,
+        description: `按主题分类浏览 ${siteTitle} 的文章。`,
+        image: siteInfo?.pageCover,
+        path: '/category',
+        type: 'website',
+        routeType: 'category-index'
       }
-    default:
-      const category = Array.isArray(post?.category)
-        ? post?.category?.[0]
-        : post?.category
+    case '/404':
       return {
-        title: post
-          ? `${post?.title} | ${siteInfo?.title}`
-          : `${siteInfo?.title} | loading`,
-        description: post?.summary,
-        type: post?.type,
-        slug: post?.slug,
-        image: post?.pageCoverThumbnail || `${siteInfo?.pageCover}`,
-        category,
-        tags: post?.tags,
-        publishDay: post?.publishDay,
-        lastEditedDay: post?.lastEditedDay,
-        publishTime:
-          getIsoTime(post?.publishDate) ||
-          getIsoTime(post?.date?.start_date),
-        modifiedTime: getIsoTime(post?.lastEditedTime || post?.lastEditedDate)
+        title: `页面未找到 | ${siteTitle}`,
+        description: '请求的页面不存在或已被移动。',
+        path: '/404',
+        type: 'website',
+        routeType: 'error'
       }
+    default: {
+      const isArticle = post?.type === 'Post'
+      const categoryName = getCategoryNames(post?.category)[0]
+      const postTitle = cleanSeoText(post?.title, 60)
+      return {
+        title: postTitle ? `${postTitle} | ${siteTitle}` : siteTitle,
+        description: cleanSeoText(
+          post?.summary || `${postTitle}：${siteDescription}`,
+          160
+        ),
+        type: isArticle ? 'article' : 'website',
+        path: post?.slug ? `/${post.slug}` : router.asPath,
+        image:
+          post?.pageCover || post?.pageCoverThumbnail || siteInfo?.pageCover,
+        category: categoryName,
+        tags: Array.isArray(post?.tags) ? post.tags.filter(Boolean) : [],
+        publishDate: toIsoDate(
+          post?.publishDate || post?.date?.start_date || post?.publishDay
+        ),
+        modifiedDate: toIsoDate(
+          post?.lastEditedTime ||
+            post?.lastEditedDate ||
+            post?.lastEditedDay ||
+            post?.publishDate
+        ),
+        routeType: isArticle ? 'article' : 'page'
+      }
+    }
   }
 }
 

@@ -29,6 +29,7 @@ export async function getStaticProps({ params: { tag, page }, locale }) {
   delete props.allPages
   return {
     props,
+    notFound: !props.posts || props.posts.length === 0,
     revalidate: process.env.EXPORT
       ? undefined
       : siteConfig(
@@ -41,7 +42,9 @@ export async function getStaticProps({ params: { tag, page }, locale }) {
 
 export async function getStaticPaths() {
   const from = 'tag-page-static-path'
-  const { tagOptions, allPages, NOTION_CONFIG } = await fetchGlobalAllData({ from })
+  const { tagOptions, allPages, NOTION_CONFIG } = await fetchGlobalAllData({
+    from
+  })
   const paths = []
   tagOptions?.forEach(tag => {
     // 过滤状态类型
@@ -61,7 +64,7 @@ export async function getStaticPaths() {
   })
   return {
     paths: paths,
-    fallback: true
+    fallback: process.env.EXPORT ? false : 'blocking'
   }
 }
 

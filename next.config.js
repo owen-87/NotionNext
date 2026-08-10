@@ -219,10 +219,10 @@ const nextConfig = {
   i18n: process.env.EXPORT
     ? undefined
     : {
-      defaultLocale: BLOG.LANG,
-      // 支持的所有多语言,按需填写即可
-      locales: locales
-    },
+        defaultLocale: BLOG.LANG,
+        // 支持的所有多语言,按需填写即可
+        locales: locales
+      },
   images: {
     // 图片压缩和格式优化
     formats: ['image/avif', 'image/webp'],
@@ -250,163 +250,212 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;"
   },
 
-  // 默认将feed重定向至 /public/rss/feed.xml
+  // 将历史和重复 URL 永久收敛到唯一规范路径
   redirects: process.env.EXPORT
     ? undefined
-    : () => {
-      return [
+    : () => [
         {
           source: '/feed',
           destination: '/rss/feed.xml',
           permanent: true
+        },
+        {
+          source: `/${BLOG.LANG}`,
+          destination: '/',
+          permanent: true,
+          locale: false
+        },
+        {
+          source: `/${BLOG.LANG}/:path*`,
+          destination: '/:path*',
+          permanent: true,
+          locale: false
+        },
+        {
+          source: '/:path*.html',
+          destination: '/:path*',
+          permanent: true
+        },
+        {
+          source: '/page/1',
+          destination: '/',
+          permanent: true
+        },
+        {
+          source: '/category/:category/page/1',
+          destination: '/category/:category',
+          permanent: true
+        },
+        {
+          source: '/tag/:tag/page/1',
+          destination: '/tag/:tag',
+          permanent: true
         }
-      ]
-    },
+      ],
   // 重写url
   rewrites: process.env.EXPORT
     ? undefined
     : () => {
-      // 处理多语言重定向
-      const langsRewrites = []
-      if (BLOG.NOTION_PAGE_ID.indexOf(',') > 0) {
-        const siteIds = BLOG.NOTION_PAGE_ID.split(',')
-        const langs = []
-        for (const siteId of siteIds) {
-          const prefix = extractLangPrefix(siteId)
-          // 如果包含前缀 例如 zh , en 等
-          if (prefix) {
-            langs.push(prefix)
+        // 处理多语言重定向
+        const langsRewrites = []
+        if (BLOG.NOTION_PAGE_ID.indexOf(',') > 0) {
+          const siteIds = BLOG.NOTION_PAGE_ID.split(',')
+          const langs = []
+          for (const siteId of siteIds) {
+            const prefix = extractLangPrefix(siteId)
+            // 如果包含前缀 例如 zh , en 等
+            if (prefix) {
+              langs.push(prefix)
+            }
+            console.log('[Locales]', siteId)
           }
-          console.log('[Locales]', siteId)
+
+          // 映射多语言
+          // 示例： source: '/:locale(zh|en)/:path*' ; :locale() 会将语言放入重写后的 `?locale=` 中。
+          langsRewrites.push(
+            {
+              source: `/:locale(${langs.join('|')})/:path*`,
+              destination: '/:path*'
+            },
+            // 匹配没有路径的情况，例如 [domain]/zh 或 [domain]/en
+            {
+              source: `/:locale(${langs.join('|')})`,
+              destination: '/'
+            },
+            // 匹配没有路径的情况，例如 [domain]/zh/ 或 [domain]/en/
+            {
+              source: `/:locale(${langs.join('|')})/`,
+              destination: '/'
+            }
+          )
         }
 
-        // 映射多语言
-        // 示例： source: '/:locale(zh|en)/:path*' ; :locale() 会将语言放入重写后的 `?locale=` 中。
-        langsRewrites.push(
+        return [
+          ...langsRewrites,
+          // RSS fallback: when static file doesn't exist, route to API
           {
-            source: `/:locale(${langs.join('|')})/:path*`,
-            destination: '/:path*'
+            source: '/rss/feed.xml',
+            destination: '/api/rss'
           },
-          // 匹配没有路径的情况，例如 [domain]/zh 或 [domain]/en
           {
-            source: `/:locale(${langs.join('|')})`,
-            destination: '/'
+            source: '/rss/atom.xml',
+            destination: '/api/rss?format=atom'
           },
-          // 匹配没有路径的情况，例如 [domain]/zh/ 或 [domain]/en/
           {
-            source: `/:locale(${langs.join('|')})/`,
-            destination: '/'
+            source: '/rss/feed.json',
+            destination: '/api/rss?format=json'
           }
-        )
-      }
-
-      return [
-        ...langsRewrites,
-        // RSS fallback: when static file doesn't exist, route to API
-        {
-          source: '/rss/feed.xml',
-          destination: '/api/rss'
-        },
-        {
-          source: '/rss/atom.xml',
-          destination: '/api/rss?format=atom'
-        },
-        {
-          source: '/rss/feed.json',
-          destination: '/api/rss?format=json'
-        },
-        // 伪静态重写
-        {
-          source: '/:path*.html',
-          destination: '/:path*'
-        }
-      ]
-    },
+        ]
+      },
   headers: process.env.EXPORT
     ? undefined
     : () => {
-      return [
-        {
-          source: '/vendor/fontawesome/:path*',
-          headers: [
-            {
-              key: 'Cache-Control',
-              value: 'public, max-age=31536000, immutable'
-            }
-          ]
-        },
-        {
-          source: '/:path*{/}?',
-          headers: [
-            // 为了博客兼容性，不做过多安全限制
-            { key: 'Access-Control-Allow-Credentials', value: 'true' },
-            { key: 'Access-Control-Allow-Origin', value: '*' },
-            {
-              key: 'Access-Control-Allow-Methods',
-              value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT'
-            },
-            {
-              key: 'Access-Control-Allow-Headers',
-              value:
-                'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-            }
-            // 安全头部 相关配置，谨慎开启
-            //   { key: 'X-Frame-Options', value: 'DENY' },
-            //   { key: 'X-Content-Type-Options', value: 'nosniff' },
-            //   { key: 'X-XSS-Protection', value: '1; mode=block' },
-            //   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-            //   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-            //   {
-            //     key: 'Strict-Transport-Security',
-            //     value: 'max-age=31536000; includeSubDomains; preload'
-            //   },
-            //   {
-            //     key: 'Content-Security-Policy',
-            //     value: [
-            //       "default-src 'self'",
-            //       "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.googleapis.com *.gstatic.com *.google-analytics.com *.googletagmanager.com",
-            //       "style-src 'self' 'unsafe-inline' *.googleapis.com *.gstatic.com",
-            //       "img-src 'self' data: blob: *.notion.so *.unsplash.com *.githubusercontent.com *.gravatar.com",
-            //       "font-src 'self' *.googleapis.com *.gstatic.com",
-            //       "connect-src 'self' *.google-analytics.com *.googletagmanager.com",
-            //       "frame-src 'self' *.youtube.com *.vimeo.com",
-            //       "object-src 'none'",
-            //       "base-uri 'self'",
-            //       "form-action 'self'"
-            //     ].join('; ')
-            //   },
+        const noIndexFollowRoutes = [
+          '/search',
+          '/search/:path*',
+          '/tag',
+          '/tag/:path*',
+          '/page/:path*',
+          '/category/:category/page/:page'
+        ]
+        const noIndexNoFollowRoutes = [
+          '/auth/:path*',
+          '/dashboard/:path*',
+          '/sign-in/:path*',
+          '/sign-up/:path*'
+        ]
 
-            //   // CORS 配置（更严格）
-            //   { key: 'Access-Control-Allow-Credentials', value: 'false' },
-            //   {
-            //     key: 'Access-Control-Allow-Origin',
-            //     value: process.env.NODE_ENV === 'production'
-            //       ? siteConfig('LINK') || 'https://yourdomain.com'
-            //       : '*'
-            //   },
-            //   { key: 'Access-Control-Max-Age', value: '86400' }
-          ]
-        },
-        //   {
-        //     source: '/api/:path*',
-        //     headers: [
-        //       // API 特定的安全头部
-        //       { key: 'X-Frame-Options', value: 'DENY' },
-        //       { key: 'X-Content-Type-Options', value: 'nosniff' },
-        //       { key: 'Cache-Control', value: 'no-store, max-age=0' },
-        //       {
-        //         key: 'Access-Control-Allow-Methods',
-        //         value: 'GET,POST,PUT,DELETE,OPTIONS'
-        //       }
-        //     ]
-        //   }
-      ]
-    },
+        return [
+          ...noIndexFollowRoutes.map(source => ({
+            source,
+            headers: [{ key: 'X-Robots-Tag', value: 'noindex, follow' }]
+          })),
+          ...noIndexNoFollowRoutes.map(source => ({
+            source,
+            headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }]
+          })),
+          {
+            source: '/vendor/fontawesome/:path*',
+            headers: [
+              {
+                key: 'Cache-Control',
+                value: 'public, max-age=31536000, immutable'
+              }
+            ]
+          },
+          {
+            source: '/:path*{/}?',
+            headers: [
+              // 为了博客兼容性，不做过多安全限制
+              { key: 'Access-Control-Allow-Credentials', value: 'true' },
+              { key: 'Access-Control-Allow-Origin', value: '*' },
+              {
+                key: 'Access-Control-Allow-Methods',
+                value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT'
+              },
+              {
+                key: 'Access-Control-Allow-Headers',
+                value:
+                  'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+              }
+              // 安全头部 相关配置，谨慎开启
+              //   { key: 'X-Frame-Options', value: 'DENY' },
+              //   { key: 'X-Content-Type-Options', value: 'nosniff' },
+              //   { key: 'X-XSS-Protection', value: '1; mode=block' },
+              //   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+              //   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+              //   {
+              //     key: 'Strict-Transport-Security',
+              //     value: 'max-age=31536000; includeSubDomains; preload'
+              //   },
+              //   {
+              //     key: 'Content-Security-Policy',
+              //     value: [
+              //       "default-src 'self'",
+              //       "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.googleapis.com *.gstatic.com *.google-analytics.com *.googletagmanager.com",
+              //       "style-src 'self' 'unsafe-inline' *.googleapis.com *.gstatic.com",
+              //       "img-src 'self' data: blob: *.notion.so *.unsplash.com *.githubusercontent.com *.gravatar.com",
+              //       "font-src 'self' *.googleapis.com *.gstatic.com",
+              //       "connect-src 'self' *.google-analytics.com *.googletagmanager.com",
+              //       "frame-src 'self' *.youtube.com *.vimeo.com",
+              //       "object-src 'none'",
+              //       "base-uri 'self'",
+              //       "form-action 'self'"
+              //     ].join('; ')
+              //   },
+
+              //   // CORS 配置（更严格）
+              //   { key: 'Access-Control-Allow-Credentials', value: 'false' },
+              //   {
+              //     key: 'Access-Control-Allow-Origin',
+              //     value: process.env.NODE_ENV === 'production'
+              //       ? siteConfig('LINK') || 'https://yourdomain.com'
+              //       : '*'
+              //   },
+              //   { key: 'Access-Control-Max-Age', value: '86400' }
+            ]
+          }
+          //   {
+          //     source: '/api/:path*',
+          //     headers: [
+          //       // API 特定的安全头部
+          //       { key: 'X-Frame-Options', value: 'DENY' },
+          //       { key: 'X-Content-Type-Options', value: 'nosniff' },
+          //       { key: 'Cache-Control', value: 'no-store, max-age=0' },
+          //       {
+          //         key: 'Access-Control-Allow-Methods',
+          //         value: 'GET,POST,PUT,DELETE,OPTIONS'
+          //       }
+          //     ]
+          //   }
+        ]
+      },
   webpack: (config, { dev, isServer }) => {
     config.ignoreWarnings = [
       ...(config.ignoreWarnings || []),
       {
-        module: /[\\/]next[\\/]dist[\\/]esm[\\/]client[\\/]components[\\/]navigation\.js$/,
+        module:
+          /[\\/]next[\\/]dist[\\/]esm[\\/]client[\\/]components[\\/]navigation\.js$/,
         message: /useContext.*not exported from ['"]react['"]/i
       }
     ]
@@ -422,8 +471,7 @@ const nextConfig = {
       console.log(
         '[ThemeResolver][webpack]',
         JSON.stringify({
-          note:
-            'Layouts load via dynamic import(@/themes/<name>). Theme folder follows runtime NEXT_PUBLIC_THEME / Notion; no compile-time @theme-components alias.',
+          note: 'Layouts load via dynamic import(@/themes/<name>). Theme folder follows runtime NEXT_PUBLIC_THEME / Notion; no compile-time @theme-components alias.',
           envTheme: process.env.NEXT_PUBLIC_THEME || null,
           configTheme: BLOG.THEME,
           themeFolderPath: path.resolve(__dirname, 'themes', BLOG.THEME)
@@ -439,8 +487,7 @@ const nextConfig = {
       }
     }
     return config
-  }
-  ,
+  },
   experimental: {
     // cpus: 1,
     scrollRestoration: true,

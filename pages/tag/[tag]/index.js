@@ -44,6 +44,7 @@ export async function getStaticProps({ params: { tag }, locale }) {
   delete props.allPages
   return {
     props,
+    notFound: props.postCount === 0,
     revalidate: process.env.EXPORT
       ? undefined
       : siteConfig(
@@ -79,7 +80,7 @@ export async function getStaticPaths() {
     paths: tagNames.map(tag => ({
       params: { tag }
     })),
-    fallback: true
+    fallback: process.env.EXPORT ? false : 'blocking'
   }
 }
 

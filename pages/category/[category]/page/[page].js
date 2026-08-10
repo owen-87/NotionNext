@@ -38,6 +38,7 @@ export async function getStaticProps({ params: { category, page } }) {
 
   return {
     props,
+    notFound: !props.posts || props.posts.length === 0,
     revalidate: process.env.EXPORT
       ? undefined
       : siteConfig(
@@ -50,9 +51,11 @@ export async function getStaticProps({ params: { category, page } }) {
 
 export async function getStaticPaths() {
   const from = 'category-paths'
-  const { categoryOptions, allPages, NOTION_CONFIG } = await fetchGlobalAllData({
-    from
-  })
+  const { categoryOptions, allPages, NOTION_CONFIG } = await fetchGlobalAllData(
+    {
+      from
+    }
+  )
   const paths = []
 
   categoryOptions?.forEach(category => {
@@ -76,6 +79,6 @@ export async function getStaticPaths() {
 
   return {
     paths,
-    fallback: true
+    fallback: process.env.EXPORT ? false : 'blocking'
   }
 }

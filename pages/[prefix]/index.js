@@ -18,6 +18,7 @@ import PropTypes from 'prop-types'
 import { useEffect, useState } from 'react'
 import { getStaticPathsBase } from '@/lib/build/staticPaths'
 import { isExport } from '@/lib/utils/buildMode'
+import { isIndexableContentPage } from '@/lib/seo'
 
 const isStaticExport = process.env.EXPORT === 'true'
 
@@ -126,7 +127,7 @@ Slug.propTypes = {
 export async function getStaticPaths() {
   return getStaticPathsBase({
     from: 'slug-paths',
-    filterFn: row => checkSlugHasNoSlash(row),
+    filterFn: row => isIndexableContentPage(row) && checkSlugHasNoSlash(row),
     mapPageToParams: row => ({ params: { prefix: row.slug } })
   })
 }
@@ -134,7 +135,7 @@ export async function getStaticPaths() {
 export async function getStaticProps({ params: { prefix }, locale }) {
   const props = await resolvePostProps({
     prefix,
-    locale,
+    locale
   })
 
   return {
@@ -142,10 +143,10 @@ export async function getStaticProps({ params: { prefix }, locale }) {
     revalidate: isStaticExport
       ? undefined
       : siteConfig(
-        'NEXT_REVALIDATE_SECOND',
-        BLOG.NEXT_REVALIDATE_SECOND,
-        props.NOTION_CONFIG
-      ),
+          'NEXT_REVALIDATE_SECOND',
+          BLOG.NEXT_REVALIDATE_SECOND,
+          props.NOTION_CONFIG
+        ),
     notFound: !props.post
   }
 }

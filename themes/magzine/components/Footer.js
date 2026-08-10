@@ -37,7 +37,7 @@ const Footer = ({ title }) => {
               alt={siteConfig('AUTHOR')}
             />
             <div>
-              <h1 className='text-lg'>{title}</h1>
+              <p className='text-lg font-semibold'>{title}</p>
               <i className='fas fa-copyright' />
               <a
                 href={siteConfig('LINK')}

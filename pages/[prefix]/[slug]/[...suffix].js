@@ -3,6 +3,7 @@ import { siteConfig } from '@/lib/config'
 import { resolvePostProps } from '@/lib/db/SiteDataApi'
 import { getStaticPathsBase } from '@/lib/build/staticPaths'
 import { isExport } from '@/lib/utils/buildMode'
+import { isIndexableContentPage } from '@/lib/seo'
 import { checkSlugHasMorThanTwoSlash } from '@/lib/utils/post'
 import Slug from '..'
 
@@ -18,11 +19,11 @@ const PrefixSlug = props => {
   return <Slug {...props} />
 }
 
-
 export async function getStaticPaths() {
   return getStaticPathsBase({
     from: 'slug-paths',
-    filterFn: row => checkSlugHasMorThanTwoSlash(row),
+    filterFn: row =>
+      isIndexableContentPage(row) && checkSlugHasMorThanTwoSlash(row),
     mapPageToParams: row => ({
       params: {
         prefix: row.slug.split('/')[0],
@@ -42,12 +43,11 @@ export async function getStaticProps({
   params: { prefix, slug, suffix },
   locale
 }) {
-
   const props = await resolvePostProps({
     prefix,
     slug,
     suffix,
-    locale,
+    locale
   })
 
   return {
@@ -55,10 +55,10 @@ export async function getStaticProps({
     revalidate: isStaticExport
       ? undefined
       : siteConfig(
-        'NEXT_REVALIDATE_SECOND',
-        BLOG.NEXT_REVALIDATE_SECOND,
-        props.NOTION_CONFIG
-      ),
+          'NEXT_REVALIDATE_SECOND',
+          BLOG.NEXT_REVALIDATE_SECOND,
+          props.NOTION_CONFIG
+        ),
     notFound: !props.post
   }
 }

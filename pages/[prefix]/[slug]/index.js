@@ -4,6 +4,7 @@ import { resolvePostProps } from '@/lib/db/SiteDataApi'
 import Slug from '..'
 import { getStaticPathsBase } from '@/lib/build/staticPaths'
 import { isExport } from '@/lib/utils/buildMode'
+import { isIndexableContentPage } from '@/lib/seo'
 import { checkSlugHasOneSlash } from '@/lib/utils/post'
 
 const isStaticExport = process.env.EXPORT === 'true'
@@ -21,7 +22,7 @@ const PrefixSlug = props => {
 export async function getStaticPaths() {
   return getStaticPathsBase({
     from: 'slug-paths',
-    filterFn: row => checkSlugHasOneSlash(row),
+    filterFn: row => isIndexableContentPage(row) && checkSlugHasOneSlash(row),
     mapPageToParams: row => ({
       params: {
         prefix: row.slug.split('/')[0],
@@ -35,7 +36,7 @@ export async function getStaticProps({ params: { prefix, slug }, locale }) {
   const props = await resolvePostProps({
     prefix,
     slug,
-    locale,
+    locale
   })
 
   return {
@@ -43,10 +44,10 @@ export async function getStaticProps({ params: { prefix, slug }, locale }) {
     revalidate: isStaticExport
       ? undefined
       : siteConfig(
-        'NEXT_REVALIDATE_SECOND',
-        BLOG.NEXT_REVALIDATE_SECOND,
-        props.NOTION_CONFIG
-      ),
+          'NEXT_REVALIDATE_SECOND',
+          BLOG.NEXT_REVALIDATE_SECOND,
+          props.NOTION_CONFIG
+        ),
     notFound: !props.post
   }
 }
