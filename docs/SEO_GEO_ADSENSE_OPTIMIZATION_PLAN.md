@@ -752,6 +752,7 @@ npm run build
 | 2026-07-29 | B-01～B-06 | 完成 `magzine` 语义标题、元数据、JSON-LD、绝对图片 URL、字体清理和测试 | 5 项完成，B-04 待 1200×630 品牌图 | Jest、TypeScript、变更文件 ESLint、生产构建、HTML/JSON-LD 抽查 | 当前默认分享图为 1200×696 | 确认品牌图并执行 E-04 |
 | 2026-07-29 | A/B 技术验收 | 运行测试、类型检查、变更文件 lint 和生产构建 | Jest 8/8、TypeScript 通过、变更文件 lint 0 错误、`next build` 通过 | 本地命令和 `.next/server/pages` 抽查 | 全仓库 lint 仍有历史遗留错误；文章页面数据约 174 kB | 后续单列性能优化并清理存量 lint |
 | 2026-08-10 | 同步上游并保留 A/B 优化 | 将 `main` 从 `6a550e4f` 快进至 `d59f52f5`（580 个提交），恢复 stash 并按最新架构融合冲突 | 15 个内容冲突全部解决；主题层仍仅修改 `magzine` | Jest 9/9、TypeScript、变更文件 ESLint、Next.js 15.5.23 生产构建 | 构建仍提示上游 `swcMinify`、runtime config 和 Clerk/Next 导入兼容警告 | 部署后执行线上 canonical、重定向、sitemap 与富媒体验证 |
+| 2026-08-10 | A-04, E-01 deployment hotfix | Upgraded Clerk to 6.35.0, migrated async middleware auth, mapped Edge navigation to the server-only entry, and removed conflicting default-locale redirects | Production build and local redirect matrix passed; the Clerk useContext import error and redirect loop are gone | TypeScript, changed-file ESLint, Jest 9/9, frozen yarn lock, Next 15.5.23 build, and curl redirect checks | Production deployment still needs verification | Commit and push the hotfix, then repeat the online redirect matrix |
 
 ### 10.5 部署与技术验证记录
 
@@ -759,6 +760,7 @@ npm run build
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-29 | 本地生产构建（`.next`） | 工作区未提交 | ✅ 通过 | ✅ 抽样文章含标题、正文、内部链接 | ✅ 绝对、自引用且已规范化 | 🔵 配置通过编译，待线上单跳验证 | ✅ 生成策略与测试通过 | ✅ JSON-LD 可解析且类型齐全 | 未验证（批次 C） | 尚未提交 | A/B 本地验收通过，尚未部署 |
 | 2026-08-10 | 本地生产构建（Next.js 15.5.23） | `d59f52f5` + 未提交 A/B 优化 | ✅ 50/50 静态页生成完成 | ✅ SSG 文章页生成 | ✅ SEO 测试通过 | 🔵 待生产环境验证 | ✅ sitemap 构建通过 | ✅ JSON-LD 测试通过 | 未验证（批次 C） | stash `0aef32ca` 保留 | 最新上游与本地优化融合验收通过，尚未部署 |
+| 2026-08-10 | Local production hotfix validation | Hotfix commit (this record) | PASS: 50/50 static pages; Clerk import error absent | PASS: existing SSG checks retained | PASS: canonical policy retained | PASS: `/` 200; `/zh-CN` -> `/` -> 200; `/zh-CN/about` -> `/about`; apex -> `www` | PASS: existing build | PASS: existing tests | Not validated (batch C) | `d18cf675` | Ready to deploy; production verification remains pending |
 
 ### 10.6 Search Console 周期观察
 

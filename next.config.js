@@ -203,10 +203,10 @@ const nextConfig = {
   // 性能优化配置
   compress: true,
   poweredByHeader: false,
+  skipMiddlewareUrlNormalize: true,
   generateEtags: true,
 
   // 构建优化
-  swcMinify: true,
   modularizeImports: {
     '@heroicons/react/24/outline': {
       transform: '@heroicons/react/24/outline/{{member}}'
@@ -258,18 +258,6 @@ const nextConfig = {
           source: '/feed',
           destination: '/rss/feed.xml',
           permanent: true
-        },
-        {
-          source: `/${BLOG.LANG}`,
-          destination: '/',
-          permanent: true,
-          locale: false
-        },
-        {
-          source: `/${BLOG.LANG}/:path*`,
-          destination: '/:path*',
-          permanent: true,
-          locale: false
         },
         {
           source: '/:path*.html',
@@ -450,16 +438,14 @@ const nextConfig = {
           //   }
         ]
       },
-  webpack: (config, { dev, isServer }) => {
-    config.ignoreWarnings = [
-      ...(config.ignoreWarnings || []),
-      {
-        module:
-          /[\\/]next[\\/]dist[\\/]esm[\\/]client[\\/]components[\\/]navigation\.js$/,
-        message: /useContext.*not exported from ['"]react['"]/i
-      }
-    ]
-
+  webpack: (config, { dev, isServer, nextRuntime }) => {
+    // Clerk middleware only needs server navigation helpers. Resolve the
+    // server-only Next.js entry in the Edge bundle to avoid pulling React
+    // client hooks into the react-server condition.
+    if (nextRuntime === 'edge') {
+      config.resolve.alias['next/navigation$'] =
+        require.resolve('next/dist/client/components/navigation.react-server')
+    }
     // 动态主题：添加 resolve.alias 配置，将动态路径映射到实际路径
     config.resolve.alias['@'] = path.resolve(__dirname)
     config.resolve.alias['lodash.throttle'] = path.resolve(

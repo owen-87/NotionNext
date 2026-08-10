@@ -31,6 +31,7 @@ function escapeRegExp(value: string) {
  */
 function getCanonicalRedirect(req: NextRequest) {
   const destination = req.nextUrl.clone()
+  const externalRequestUrl = new URL(req.url)
   const canonicalUrl = new URL(BLOG.LINK)
   const canonicalHostname = canonicalUrl.hostname.toLowerCase()
   const apexHostname = canonicalHostname.startsWith('www.')
@@ -59,13 +60,24 @@ function getCanonicalRedirect(req: NextRequest) {
   }
 
   const localePattern = new RegExp(`^/${escapeRegExp(BLOG.LANG)}(?=/|$)`, 'i')
-  if (localePattern.test(destination.pathname)) {
+  if (localePattern.test(externalRequestUrl.pathname)) {
     destination.pathname =
-      destination.pathname.replace(localePattern, '') || '/'
+      externalRequestUrl.pathname.replace(localePattern, '') || '/'
     shouldRedirect = true
   }
 
-  return shouldRedirect ? NextResponse.redirect(destination, 308) : null
+  // Next.js i18n may expose the default locale in `nextUrl.pathname` even
+  // when the browser requested the unprefixed URL. Never redirect an
+  // already-canonical external URL to itself, or Vercel will loop forever.
+  const isSameExternalUrl =
+    destination.protocol === externalRequestUrl.protocol &&
+    destination.host === externalRequestUrl.host &&
+    destination.pathname === externalRequestUrl.pathname &&
+    destination.search === externalRequestUrl.search
+
+  return shouldRedirect && !isSameExternalUrl
+    ? NextResponse.redirect(destination, 308)
+    : null
 }
 
 const noAuthMiddleware = async (req: NextRequest, _event: NextFetchEvent) => {
@@ -94,8 +106,8 @@ const noAuthMiddleware = async (req: NextRequest, _event: NextFetchEvent) => {
 }
 
 const authMiddleware = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-  ? clerkMiddleware((auth, req) => {
-      const { userId } = auth()
+  ? clerkMiddleware(async (auth, req) => {
+      const { userId } = await auth()
       if (isTenantRoute(req) && !userId) {
         const url = new URL('/sign-in', req.url)
         url.searchParams.set('redirectTo', req.url)
@@ -103,12 +115,7 @@ const authMiddleware = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
       }
 
       if (isTenantAdminRoute(req)) {
-        auth().protect(has => {
-          return (
-            has({ permission: 'org:sys_memberships:manage' }) ||
-            has({ permission: 'org:sys_domains_manage' })
-          )
-        })
+        await auth.protect({ role: 'org:admin' })
       }
 
       return NextResponse.next()
