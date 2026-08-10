@@ -40,10 +40,6 @@ function getCanonicalRedirect(req: NextRequest) {
   const requestHostname = (
     req.headers.get('host')?.split(':')[0] || destination.hostname
   ).toLowerCase()
-  const forwardedProtocol = (
-    req.headers.get('x-forwarded-proto')?.split(',')[0] ||
-    destination.protocol.replace(':', '')
-  ).toLowerCase()
   const recognizedProductionHost = [canonicalHostname, apexHostname].includes(
     requestHostname
   )
@@ -52,10 +48,7 @@ function getCanonicalRedirect(req: NextRequest) {
   if (recognizedProductionHost && requestHostname !== canonicalHostname) {
     destination.hostname = canonicalHostname
     destination.port = canonicalUrl.port
-    shouldRedirect = true
-  }
-  if (recognizedProductionHost && forwardedProtocol === 'http') {
-    destination.protocol = 'https:'
+    destination.protocol = canonicalUrl.protocol
     shouldRedirect = true
   }
 
