@@ -21,6 +21,14 @@ const isTenantAdminRoute = createRouteMatcher([
   '/admin/(.*)/domain'
 ])
 
+const isClerkRoute = createRouteMatcher([
+  '/user/organization-selector(.*)',
+  '/user/orgid/(.*)',
+  '/dashboard(.*)',
+  '/admin/(.*)',
+  '/api/user(.*)'
+])
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -118,5 +126,7 @@ const authMiddleware = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 export default function middleware(req: NextRequest, event: NextFetchEvent) {
   const canonicalRedirect = getCanonicalRedirect(req)
   if (canonicalRedirect) return canonicalRedirect
-  return authMiddleware(req, event)
+  return isClerkRoute(req)
+    ? authMiddleware(req, event)
+    : noAuthMiddleware(req, event)
 }
