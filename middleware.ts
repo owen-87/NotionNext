@@ -29,17 +29,12 @@ const isClerkRoute = createRouteMatcher([
   '/api/user(.*)'
 ])
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 /**
- * Redirect only recognized production hosts. Preview deployments remain usable
- * and default-locale aliases collapse to the unprefixed canonical path.
+ * Redirect only recognized production hosts. Preview deployments remain usable.
+ * Protocol normalization is owned by Vercel, which already redirects HTTP.
  */
 function getCanonicalRedirect(req: NextRequest) {
   const destination = req.nextUrl.clone()
-  const externalRequestUrl = new URL(req.url)
   const canonicalUrl = new URL(BLOG.LINK)
   const canonicalHostname = canonicalUrl.hostname.toLowerCase()
   const apexHostname = canonicalHostname.startsWith('www.')
@@ -51,34 +46,14 @@ function getCanonicalRedirect(req: NextRequest) {
   const recognizedProductionHost = [canonicalHostname, apexHostname].includes(
     requestHostname
   )
-  let shouldRedirect = false
-
   if (recognizedProductionHost && requestHostname !== canonicalHostname) {
     destination.hostname = canonicalHostname
     destination.port = canonicalUrl.port
     destination.protocol = canonicalUrl.protocol
-    shouldRedirect = true
+    return NextResponse.redirect(destination, 308)
   }
 
-  const localePattern = new RegExp(`^/${escapeRegExp(BLOG.LANG)}(?=/|$)`, 'i')
-  if (localePattern.test(externalRequestUrl.pathname)) {
-    destination.pathname =
-      externalRequestUrl.pathname.replace(localePattern, '') || '/'
-    shouldRedirect = true
-  }
-
-  // Next.js i18n may expose the default locale in `nextUrl.pathname` even
-  // when the browser requested the unprefixed URL. Never redirect an
-  // already-canonical external URL to itself, or Vercel will loop forever.
-  const isSameExternalUrl =
-    destination.protocol === externalRequestUrl.protocol &&
-    destination.host === externalRequestUrl.host &&
-    destination.pathname === externalRequestUrl.pathname &&
-    destination.search === externalRequestUrl.search
-
-  return shouldRedirect && !isSameExternalUrl
-    ? NextResponse.redirect(destination, 308)
-    : null
+  return null
 }
 
 const noAuthMiddleware = async (req: NextRequest, _event: NextFetchEvent) => {
