@@ -310,7 +310,7 @@ const LayoutSlug = props => {
                 <ArticleInfo {...props} />
 
                 {/* 文章区块分为三列 */}
-                <div className='grid grid-cols-1 lg:grid-cols-5 gap-8 py-12'>
+                <div className='grid grid-cols-1 lg:grid-cols-5 gap-8 pt-2 pb-12'>
                   <div className='h-full lg:col-span-1 hidden lg:block'>
                     <Catalog
                       post={post}
