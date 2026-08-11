@@ -18,6 +18,14 @@ const Footer = ({ title }) => {
   const { siteInfo } = useGlobal()
   const footerLinks = siteConfig('MAGZINE_FOOTER_LINKS', [], CONFIG)
   const MAGZINE_FOOTER_LINKS = Array.isArray(footerLinks) ? footerLinks : []
+  const configuredFooterHrefs = new Set(
+    MAGZINE_FOOTER_LINKS.flatMap(group =>
+      (Array.isArray(group?.menus) ? group.menus : []).map(menu => menu?.href)
+    ).filter(Boolean)
+  )
+  const requiredPolicyLinks = [
+    { title: '隐私政策', href: '/privacy-policy' }
+  ].filter(link => !configuredFooterHrefs.has(link.href))
 
   return (
     <footer
@@ -84,6 +92,23 @@ const Footer = ({ title }) => {
             <CopyRightDate />
             <PoweredBy />
           </div>
+
+          {requiredPolicyLinks.length > 0 && (
+            <nav
+              aria-label='隐私与政策'
+              className='flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-3 lg:py-0'
+            >
+              {requiredPolicyLinks.map(link => (
+                <SmartLink
+                  key={link.href}
+                  href={link.href}
+                  className='underline underline-offset-4 hover:text-gray-300'
+                >
+                  {link.title}
+                </SmartLink>
+              ))}
+            </nav>
+          )}
 
           <DarkModeButton className='text-white' />
 

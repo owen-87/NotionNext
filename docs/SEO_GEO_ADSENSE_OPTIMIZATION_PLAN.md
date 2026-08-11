@@ -3,8 +3,8 @@
 > 网站：<https://www.funshow.top/>
 > 源码：NotionNext / Next.js Pages Router
 > 审阅日期：2026-07-27
-> 最近更新：2026-08-10
-> 当前状态：批次 A、B 已完成本地实施与最新上游融合，尚未部署
+> 最近更新：2026-08-11
+> 当前状态：批次 A、B 已部署；批次 C 已完成本地代码整改和验证，待提交部署，Notion 与 AdSense 后台配置待手工完成
 
 ## 1. 项目目标
 
@@ -695,11 +695,11 @@ npm run build
 | 阶段 | 任务数 | 已完成 | 待处理 | 当前状态 |
 | --- | ---: | ---: | ---: | --- |
 | 基线审计与准备 | 3 | 2 | 1 | 🟡 进行中 |
-| 批次 A：恢复可索引技术基础 | 7 | 6 | 1 | 🔵 待上线验证 |
-| 批次 B：页面语义、元数据与结构化数据 | 6 | 5 | 1 | 🔵 待资产/线上验证 |
-| 批次 C：AdSense 与隐私合规 | 5 | 0 | 5 | ⬜ 未开始 |
+| 批次 A：恢复可索引技术基础 | 7 | 6 | 1 | 🟡 已部署，URL 归一化仍有残留项 |
+| 批次 B：页面语义、元数据与结构化数据 | 6 | 5 | 1 | 🟡 已部署，待 1200×630 品牌图 |
+| 批次 C：AdSense 与隐私合规 | 5 | 2 | 3 | 🟡 代码已完成，待部署与站外配置 |
 | 批次 D：内容质量与内部链接 | 5 | 0 | 5 | ⬜ 未开始 |
-| 批次 E：部署、提交与持续观察 | 8 | 0 | 8 | ⬜ 未开始 |
+| 批次 E：部署、提交与持续观察 | 8 | 2 | 6 | 🟡 部署完成，Google 工具与持续观察待执行 |
 
 ### 10.3 主任务跟踪表
 
@@ -711,7 +711,7 @@ npm run build
 | A-01 | A | 恢复文章、分类、标签等公开页面的 SSR/SSG 正文输出 | 渲染层 | P0 | ✅ 已完成 | 2026-07-29 | 本地生产构建成功；抽样文章 HTML 含标题、正文和内部链接 | ISR 使用 `fallback: blocking`，空列表返回 404 |
 | A-02 | A | 隔离 Clerk 等客户端依赖，避免公开内容被迫全站 CSR | 应用架构 | P0 | ✅ 已完成 | 2026-07-29 | ClerkProvider 仅用于私有路由；公开页服务端 HTML 验证通过 | 公开头部登录控件改为独立客户端岛 |
 | A-03 | A | 为所有可索引页面生成唯一、绝对且自引用的 canonical | SEO 元数据 | P0 | ✅ 已完成 | 2026-07-29 | 自动化测试及构建 HTML 验证：绝对 URL、去查询参数、去默认语言和 `.html` | canonical 主域固定取 `BLOG.LINK` |
-| A-04 | A | 统一主域名、协议、语言前缀、尾斜杠和跟踪参数重定向 | 路由/CDN | P0 | 🔵 待验证 | — | middleware 与 Next redirects 已实现并通过编译 | 需部署后验证 HTTP、裸域、默认语言、`.html` 的单跳 301 |
+| A-04 | A | 统一主域名、协议、语言前缀、尾斜杠和跟踪参数重定向 | 路由/CDN | P0 | 🟡 部分完成 | 2026-08-10 | HTTPS、裸域到 `www` 已上线；默认语言使用 canonical；`.html` 仍经 `/zh-CN/` 两步到达规范页，裸域 sitemap 仍直接 200 | Vercel 默认语言重定向曾产生循环，当前优先保证可访问性，剩余归一化继续单独处理 |
 | A-05 | A | 建立路由级 index/noindex 策略 | 路由/SEO | P0 | ✅ 已完成 | 2026-07-29 | 搜索、标签、分页、私有路由输出 noindex；搜索构建 HTML 已抽查 | 同时配置 `X-Robots-Tag` |
 | A-06 | A | 重建 sitemap，过滤非规范 URL 并输出可信 lastmod | Sitemap | P0 | ✅ 已完成 | 2026-07-29 | 单元测试覆盖收录/排除、规范 URL、分类 URL、lastmod 和 XML | 运行时与静态导出共用同一策略 |
 | A-07 | A | 校正 robots.txt，仅屏蔽不应抓取区域并声明 sitemap | Robots | P0 | ✅ 已完成 | 2026-07-29 | 生成器与单元测试通过，仅声明一个绝对 sitemap URL | 上线后再用 Google 工具复核 |
@@ -721,19 +721,19 @@ npm run build
 | B-04 | B | 使用 HTTPS Logo 和 1200×630 社交分享图 | 品牌资源 | P1 | 🔵 待验证 | — | OG/Twitter/Logo 已统一输出绝对 HTTPS URL；当前默认图为 1200×696 | 仍需确认或提供严格 1200×630 品牌图并做线上预览 |
 | B-05 | B | 移除或修复失效字体 preload | 性能 | P1 | ✅ 已完成 | 2026-07-29 | 已移除不存在的 `/fonts/inter-var.woff2` preload | 自定义字体仅在配置有效时加载 |
 | B-06 | B | 增加 canonical、robots、sitemap 和结构化数据自动化测试 | 测试 | P1 | ✅ 已完成 | 2026-08-10 | 3 个测试套件、9 个测试全部通过 | 覆盖 canonical、robots、索引过滤、sitemap、JSON-LD、H1 |
-| C-01 | C | 从 GLOBAL_JS 等配置中移除重复 AdSense 脚本 | 广告代码 | P0 | ⬜ 未开始 | — | 待确认页面不再重复注入 | — |
-| C-02 | C | 建立全站唯一、幂等的 AdSense 加载入口 | 广告代码 | P0 | ⬜ 未开始 | — | 待验证主脚本仅加载一次 | — |
-| C-03 | C | 设置广告页面白名单并限制自动广告覆盖非内容页 | 广告策略 | P0 | ⬜ 未开始 | — | 待抽查首页、文章和工具页 | — |
-| C-04 | C | 配置 CMP、欧洲消息和 Consent Mode | AdSense 后台/隐私 | P0 | ⬜ 未开始 | — | 待进行地区化同意测试 | 需要后台权限 |
-| C-05 | C | 审核 VPN、破解、下载等高风险内容和广告适配性 | 内容政策 | P0 | ⬜ 未开始 | — | 待记录保留、改写或排除广告的页面 | — |
+| C-01 | C | 从 GLOBAL_JS 等配置中移除重复 AdSense 脚本 | 广告代码 | P0 | 🟡 部分完成 | 2026-08-11 | 代码会识别并阻断 `GLOBAL_JS` 中的 `adsbygoogle`/`ca-pub` 注入；线上配置确认当前 `GLOBAL_JS` 仅含一段 AdSense 脚本 | 仍需在 Notion 配置中心手工清空该段 `GLOBAL_JS`，部署后复核 |
+| C-02 | C | 建立全站唯一、幂等的 AdSense 加载入口 | 广告代码 | P0 | ✅ 已完成 | 2026-08-11 | 建立统一 `AdsenseLoader`；兼容 Notion 的 `NEXT_PUBLIC_ADSENSE_*` 旧键；重复初始化和遗留脚本去重测试通过 | 批次 C 自动化测试 9/9，通过后待部署验证 |
+| C-03 | C | 设置广告页面白名单并限制自动广告覆盖非内容页 | 广告策略 | P0 | 🟡 部分完成 | 2026-08-11 | 代码白名单仅允许首页和不少于 600 字的已发布 Post；Page、搜索、404、认证、后台、密码页、薄内容和风险页默认无脚本/广告位；本地 `/search` 为 0 脚本、0 广告位 | 仍需在 AdSense 后台关闭 Auto Ads 或建立同等 URL 排除规则 |
+| C-04 | C | 配置 CMP、欧洲消息和 Consent Mode | AdSense 后台/隐私 | P0 | 🟡 部分完成 | 2026-08-11 | 首个 HTML 已包含 EEA、英国、瑞士地区的 Consent Mode v2 默认拒绝信号；`magzine` 页脚增加“隐私政策”入口 | 需在 AdSense“隐私与消息”启用 Google 认证 CMP/TCF v2.3，并补写隐私政策更新时间、第三方供应商和 CMP 说明 |
+| C-05 | C | 审核 VPN、破解、下载等高风险内容和广告适配性 | 内容政策 | P0 | ✅ 已完成 | 2026-08-11 | 元数据扫描和 6501 字正文抽查仅命中 `/article/1-1-14`；内容包含 Hysteria2/VPN、服务器部署、端口和伪装配置，审批期明确排除广告 | 默认路径排除与风险关键词双重保护；新增类似内容时继续人工复核 |
 | D-01 | D | 优先完善 6 篇薄内容或低价值文章 | Notion 内容 | P1 | ⬜ 未开始 | — | 待比较改写前后结构和原创价值 | — |
 | D-02 | D | 重写 About 页面，补充作者、资历、站点定位和联系方式 | Notion 内容 | P1 | ⬜ 未开始 | — | 待检查信任信息完整性 | — |
 | D-03 | D | 完善 Contact、Privacy、Terms、Disclaimer、Editorial Policy | Notion 内容 | P0 | ⬜ 未开始 | — | 待逐页检查可访问性与一致性 | — |
 | D-04 | D | 为分类和标签页补充唯一导语与主题说明 | Notion 内容 | P1 | ⬜ 未开始 | — | 待检查重复内容和内部链接 | — |
 | D-05 | D | 增加上下文链接、面包屑和相关推荐 | 模板/内容 | P1 | ⬜ 未开始 | — | 待检查孤立页面数量和点击深度 | — |
-| E-01 | E | 运行 lint、类型检查、自动化测试和生产构建 | 工程验证 | P0 | ⬜ 未开始 | — | 待附命令结果 | — |
-| E-02 | E | 部署生产环境并记录版本与回滚点 | 部署 | P0 | ⬜ 未开始 | — | 待验证部署健康状态 | — |
-| E-03 | E | 在线复核无 JavaScript 正文、canonical、重定向和 sitemap | 线上验证 | P0 | ⬜ 未开始 | — | 待附代表 URL 检查结果 | — |
+| E-01 | E | 运行 lint、类型检查、自动化测试和生产构建 | 工程验证 | P0 | ✅ 已完成 | 2026-08-11 | A/B/C 均完成针对性测试、类型检查、变更文件 lint 和 Next.js 15.5.23 生产构建 | 全仓库 Jest 当前 240/241，唯一失败为既有 sitemap 测试环境域名不一致，与批次 C 无关 |
+| E-02 | E | 部署生产环境并记录版本与回滚点 | 部署 | P0 | ✅ 已完成 | 2026-08-10 | A/B 与部署修复已推送并由 Vercel 部署，线上站点恢复正常 | 批次 C 尚未提交和部署 |
+| E-03 | E | 在线复核无 JavaScript 正文、canonical、重定向和 sitemap | 线上验证 | P0 | 🟡 部分完成 | 2026-08-10 | 正文、canonical、主域、HTTPS 和 `www` sitemap 已复核；文章版式也已完成桌面与移动端检查 | A-04 所列 `.html`、默认语言和裸域 sitemap 残留项待继续收敛；批次 C 部署后另做广告抽查 |
 | E-04 | E | 使用富媒体搜索结果测试验证结构化数据 | Google 工具 | P1 | ⬜ 未开始 | — | 待记录错误和警告 | — |
 | E-05 | E | 在 Search Console 提交新 sitemap | Search Console | P0 | ⬜ 未开始 | — | 待记录读取状态和发现 URL 数 | — |
 | E-06 | E | 检查并请求索引代表页面 | Search Console | P1 | ⬜ 未开始 | — | 待记录实时测试和请求日期 | — |
@@ -753,6 +753,7 @@ npm run build
 | 2026-07-29 | A/B 技术验收 | 运行测试、类型检查、变更文件 lint 和生产构建 | Jest 8/8、TypeScript 通过、变更文件 lint 0 错误、`next build` 通过 | 本地命令和 `.next/server/pages` 抽查 | 全仓库 lint 仍有历史遗留错误；文章页面数据约 174 kB | 后续单列性能优化并清理存量 lint |
 | 2026-08-10 | 同步上游并保留 A/B 优化 | 将 `main` 从 `6a550e4f` 快进至 `d59f52f5`（580 个提交），恢复 stash 并按最新架构融合冲突 | 15 个内容冲突全部解决；主题层仍仅修改 `magzine` | Jest 9/9、TypeScript、变更文件 ESLint、Next.js 15.5.23 生产构建 | 构建仍提示上游 `swcMinify`、runtime config 和 Clerk/Next 导入兼容警告 | 部署后执行线上 canonical、重定向、sitemap 与富媒体验证 |
 | 2026-08-10 | A-04, E-01 deployment hotfix | Upgraded Clerk to 6.35.0, migrated async middleware auth, mapped Edge navigation to the server-only entry, and removed conflicting default-locale redirects | Production build and local redirect matrix passed; the Clerk useContext import error and redirect loop are gone | TypeScript, changed-file ESLint, Jest 9/9, frozen yarn lock, Next 15.5.23 build, and curl redirect checks | Production deployment still needs verification | Commit and push the hotfix, then repeat the online redirect matrix |
+| 2026-08-11 | C-01～C-05 | 重写 AdSense 加载与广告位初始化；阻断 `GLOBAL_JS` 广告注入；加入路由/内容白名单、风险排除、Consent Mode v2 默认值和 `magzine` 隐私入口 | C-02、C-05 完成；C-01、C-03、C-04 的代码侧完成，站外配置待执行 | 批次 C Jest 9/9；TypeScript 通过；变更文件 ESLint 0 错误；Next.js 15.5.23 构建 50/50；本地 `/search` 0 脚本、0 广告位 | Notion `GLOBAL_JS` 尚未手工清空；AdSense Auto Ads/CMP 无后台权限；线上隐私政策仅 302 字，缺更新时间、第三方供应商和 CMP 说明；全仓库既有 sitemap 测试 1 项失败 | 提交部署后执行线上白名单抽查，并完成 10.8 站外操作清单 |
 
 ### 10.5 部署与技术验证记录
 
@@ -761,6 +762,7 @@ npm run build
 | 2026-07-29 | 本地生产构建（`.next`） | 工作区未提交 | ✅ 通过 | ✅ 抽样文章含标题、正文、内部链接 | ✅ 绝对、自引用且已规范化 | 🔵 配置通过编译，待线上单跳验证 | ✅ 生成策略与测试通过 | ✅ JSON-LD 可解析且类型齐全 | 未验证（批次 C） | 尚未提交 | A/B 本地验收通过，尚未部署 |
 | 2026-08-10 | 本地生产构建（Next.js 15.5.23） | `d59f52f5` + 未提交 A/B 优化 | ✅ 50/50 静态页生成完成 | ✅ SSG 文章页生成 | ✅ SEO 测试通过 | 🔵 待生产环境验证 | ✅ sitemap 构建通过 | ✅ JSON-LD 测试通过 | 未验证（批次 C） | stash `0aef32ca` 保留 | 最新上游与本地优化融合验收通过，尚未部署 |
 | 2026-08-10 | Local production hotfix validation | Hotfix commit (this record) | PASS: 50/50 static pages; Clerk import error absent | PASS: existing SSG checks retained | PASS: canonical policy retained | PASS: `/` 200; `/zh-CN` -> `/` -> 200; `/zh-CN/about` -> `/about`; apex -> `www` | PASS: existing build | PASS: existing tests | Not validated (batch C) | `d18cf675` | Ready to deploy; production verification remains pending |
+| 2026-08-11 | 本地批次 C 验证 | 工作区未提交 | ✅ 50/50 静态页生成完成 | ✅ 原有 SSG 正文保留 | ✅ 原有策略保留 | 不涉及 | ✅ 原有策略保留 | ✅ 原有测试保留 | ✅ 幂等测试固定为 1；`/search` 为 0；风险页策略测试为 0 | `322c56b3` | 批次 C 代码可提交；生产环境、CMP 和 Auto Ads 后台仍待验证 |
 
 ### 10.6 Search Console 周期观察
 
@@ -775,8 +777,23 @@ npm run build
 | 日期 | 站点状态 | 申请/复审结果 | Policy Center 问题 | ads.txt | CMP | 非内容页广告排除 | 风险页面处理 | 后续动作 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 基线 | 整改前 | 尚未记录 | 待检查 | 正常 | 待配置 | 待配置 | VPN 等内容待审核 | 完成 P0 项后再申请或复审 |
+| 2026-08-11 | 批次 C 代码已完成，待部署 | 尚未申请/复审 | 待登录后台检查 | 线上正常 | 代码已有 Consent Mode v2 默认值；Google 认证 CMP 待启用 | 代码白名单完成；Auto Ads/URL 排除待后台配置 | `/article/1-1-14` 已默认排除 | 完成下方站外操作、部署抽查后再申请或复审 |
 
-### 10.8 最终结果复盘
+### 10.8 批次 C 站外操作清单
+
+以下操作涉及 Notion 或 AdSense 账号，代码无法代替后台配置。只有完成并提供截图或导出证据后，相关任务才能从“部分完成”改为“已完成”。
+
+| 操作 ID | 平台 | 手工操作 | 当前状态 | 完成判定 |
+| --- | --- | --- | --- | --- |
+| C-M01 | Notion 配置中心 | 清空 `GLOBAL_JS` 中创建 `adsbygoogle.js?client=ca-pub-1908581571364364` 的整段脚本，保留其他非广告自定义脚本 | ⬜ 待执行；代码已临时阻断 | 生产页面 `GLOBAL_JS` 不再包含 `adsbygoogle`/`ca-pub`，代表文章主脚本仍恰好为 1 |
+| C-M02 | AdSense → 广告 | 审批期建议关闭 Auto Ads；如保留，则至少排除 `/search*`、`/404`、`/sign-in*`、`/sign-up*`、`/dashboard*`、`/privacy-policy`、密码页和 `/article/1-1-14` | ⬜ 待执行 | 直接打开及客户端跳转后，非白名单页均无广告请求和自动广告 DOM |
+| C-M03 | AdSense → 隐私与消息 | 创建并发布欧洲法规消息，使用 Google 认证 CMP，覆盖 EEA、英国和瑞士；确认使用当前要求的 IAB TCF v2.3，并启用 Google CMP 的 Consent Mode 集成 | ⬜ 待执行 | 欧洲地区测试出现同意界面，可拒绝/管理选项；选择能更新 `ad_storage`、`ad_user_data`、`ad_personalization` 和 `analytics_storage` |
+| C-M04 | Notion 隐私政策 | 增加最后更新日期；披露 Google 及其他第三方供应商使用 Cookie、个性化/非个性化广告、Google Ads Settings 退出方式、CMP 覆盖地区和联系方式 | ⬜ 待执行；当前页仅约 302 字 | `/privacy-policy` 可见完整披露，页脚可从全站访问，并与后台实际服务一致 |
+| C-M05 | GitHub/Vercel | 提交并部署本批次代码；逐一抽查首页、安全文章、`/search`、`/privacy-policy`、404、登录页和 `/article/1-1-14` | ⬜ 待执行 | 白名单页主脚本最多 1；所有排除页主脚本和广告位均为 0；正文加载不受广告失败影响 |
+
+官方依据：[AdSense CMP 要求](https://support.google.com/adsense/answer/13554116)、[隐私政策必需内容](https://support.google.com/adsense/answer/1348695)、[Consent Mode 设置](https://developers.google.com/tag-platform/security/guides/consent)、[不诚实行为政策](https://support.google.com/publisherpolicies/answer/10436828)。
+
+### 10.9 最终结果复盘
 
 | 指标 | 优化前基线 | 目标 | 实际结果 | 结论 |
 | --- | ---: | ---: | ---: | --- |
@@ -786,7 +803,7 @@ npm run build
 | “重复网页，Google 选择了不同规范网页”数量 | 待导出 | 显著下降 | 待记录 | 待评估 |
 | 软 404 数量 | 待导出 | 0 | 待记录 | 待评估 |
 | 抽样页面原始 HTML 含完整正文比例 | 0%（本次抽样） | 100% | 100%（本地构建抽样） | 达标，待线上复核 |
-| 抽样页面 AdSense 主脚本加载次数 | 约 5 次（代表页抽样） | 1 次 | 待记录 | 待评估 |
+| 抽样页面 AdSense 主脚本加载次数 | 约 5 次（代表页抽样） | 白名单页 1 次；排除页 0 次 | 本地幂等测试为 1，`/search` 为 0；生产环境待部署 | 代码达标，待线上复核 |
 | 富媒体搜索结果严重错误 | 待验证 | 0 | 待记录 | 待评估 |
 | Google 自然搜索展示与点击 | 待导出 | 连续 4–8 周呈增长趋势 | 待记录 | 待评估 |
 | AdSense 审核 | 待记录 | 通过 | 待记录 | 待评估 |

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/router'
 import { useEffect, useMemo, useState } from 'react'
 import { GlobalStyle } from './GlobalStyle'
-import { initGoogleAdsense } from './GoogleAdsense'
+import { AdsenseLoader } from './GoogleAdsense'
 
 import Head from 'next/head'
 import ExternalScript from './ExternalScript'
@@ -13,6 +13,7 @@ import WebWhiz from './Webwhiz'
 import { useGlobal } from '@/lib/global'
 import IconFont from './IconFont'
 import { getPageCanCopy } from '@/lib/utils/copyPermission'
+import { containsAdsenseInjection } from '@/lib/adsense'
 
 /**
  * 各种插件脚本
@@ -23,6 +24,7 @@ const ExternalPlugin = props => {
   // 读取自Notion的配置
   const { NOTION_CONFIG } = props
   const { lang } = useGlobal()
+  const router = useRouter()
   const [pluginsIdle, setPluginsIdle] = useState(false)
   const DISABLE_PLUGIN = siteConfig('DISABLE_PLUGIN', null, NOTION_CONFIG)
   const THEME_SWITCH = siteConfig('THEME_SWITCH', null, NOTION_CONFIG)
@@ -38,7 +40,6 @@ const ExternalPlugin = props => {
     null,
     NOTION_CONFIG
   )
-  const ADSENSE_GOOGLE_ID = siteConfig('ADSENSE_GOOGLE_ID', null, NOTION_CONFIG)
   const FACEBOOK_APP_ID = siteConfig('FACEBOOK_APP_ID', null, NOTION_CONFIG)
   const FACEBOOK_PAGE_ID = siteConfig('FACEBOOK_PAGE_ID', null, NOTION_CONFIG)
   const FIREWORKS = siteConfig('FIREWORKS', null, NOTION_CONFIG)
@@ -192,26 +193,27 @@ const ExternalPlugin = props => {
     }
   }, [ANIMATE_CSS_URL, IMG_SHADOW, externalCssList, externalJsList])
 
-  const router = useRouter()
   useEffect(() => {
-    // 异步渲染谷歌广告
-    if (ADSENSE_GOOGLE_ID) {
-      setTimeout(() => {
-        initGoogleAdsense(ADSENSE_GOOGLE_ID)
-      }, 3000)
-    }
-
-    setTimeout(() => {
+    const timer = window.setTimeout(() => {
       // 映射url
       convertInnerUrl({
         allPages: props?.allLinkPages || props?.allNavPages,
         lang: lang
       })
     }, 500)
-  }, [router])
+
+    return () => window.clearTimeout(timer)
+  }, [lang, props?.allLinkPages, props?.allNavPages, router.asPath])
 
   useEffect(() => {
     if (!isBrowser || !GLOBAL_JS || GLOBAL_JS.trim() === '') {
+      return
+    }
+
+    if (containsAdsenseInjection(GLOBAL_JS)) {
+      console.warn(
+        'Blocked AdSense injection from GLOBAL_JS. Use AdsenseLoader as the only entry.'
+      )
       return
     }
 
@@ -236,11 +238,14 @@ const ExternalPlugin = props => {
   }, [])
 
   if (DISABLE_PLUGIN) {
-    return null
+    return (
+      <AdsenseLoader {...props} NOTION_CONFIG={NOTION_CONFIG} disabled={true} />
+    )
   }
 
   return (
     <>
+      <AdsenseLoader {...props} NOTION_CONFIG={NOTION_CONFIG} />
       {/* 全局样式嵌入 */}
       <GlobalStyle />
       {ENABLE_ICON_FONT && <IconFont />}

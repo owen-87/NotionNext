@@ -369,7 +369,7 @@ const LayoutSlug = props => {
 
                     {/* Adsense */}
                     <div>
-                      <AdSlot />
+                      <AdSlot post={post} lock={lock} />
                     </div>
 
                     {/* 留白 */}

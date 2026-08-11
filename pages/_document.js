@@ -1,5 +1,6 @@
 // eslint-disable-next-line @next/next/no-document-import-in-page
 import BLOG from '@/blog.config'
+import { getGoogleConsentModeBootstrap } from '@/lib/consent'
 import Document, { Head, Html, Main, NextScript } from 'next/document'
 
 const isLocalFontAwesome = BLOG.FONT_AWESOME?.startsWith(
@@ -47,6 +48,13 @@ class MyDocument extends Document {
     return (
       <Html lang={BLOG.LANG}>
         <Head>
+          {/* 在任何 Google 标签之前设置 EEA/英国/瑞士的 Consent Mode v2 默认值。 */}
+          <script
+            id='google-consent-mode-defaults'
+            dangerouslySetInnerHTML={{
+              __html: getGoogleConsentModeBootstrap()
+            }}
+          />
           <link rel='preconnect' href='https://images.unsplash.com' />
           <link rel='dns-prefetch' href='//images.unsplash.com' />
 

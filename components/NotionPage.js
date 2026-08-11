@@ -137,7 +137,7 @@ const NotionPage = ({ post, className }) => {
         }}
       />
 
-      <AdEmbed />
+      <AdEmbed post={post} />
       <OriginalityProof proof={post?.originalityProof} />
       {hasCodeBlock(post?.blockMap) && <PrismMac />}
     </div>
