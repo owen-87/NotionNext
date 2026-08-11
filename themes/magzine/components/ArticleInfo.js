@@ -1,4 +1,3 @@
-import LazyImage from '@/components/LazyImage'
 import NotionIcon from '@/components/NotionIcon'
 import { siteConfig } from '@/lib/config'
 import CategoryItem from './CategoryItem'
@@ -41,19 +40,6 @@ export default function ArticleInfo(props) {
 
         <div className='text-xl text-center'>{post?.summary}</div>
       </div>
-
-      {post?.type && post?.type !== 'Page' && post?.pageCover && (
-        <div className='w-full aspect-video relative md:flex-shrink-0 overflow-hidden'>
-          <LazyImage
-            priority
-            alt={post?.title}
-            src={post?.pageCover}
-            width={1200}
-            height={675}
-            className='object-cover max-h-[60vh] w-full h-full'
-          />
-        </div>
-      )}
     </>
   )
 }
