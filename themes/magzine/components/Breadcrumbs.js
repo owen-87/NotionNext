@@ -4,22 +4,29 @@ function firstCategory(category) {
   return Array.isArray(category) ? category.find(Boolean) : category
 }
 
-export default function Breadcrumbs({ post, category }) {
+export function buildBreadcrumbItems({ post, category, tag } = {}) {
   const currentCategory = category || firstCategory(post?.category)
   const items = [{ name: '首页', href: '/' }]
 
-  if (category) {
-    items.push({ name: '分类', href: '/category' })
-  }
   if (currentCategory) {
+    items.push({ name: '分类', href: '/category' })
     items.push({
       name: currentCategory,
       href: `/category/${encodeURIComponent(currentCategory)}`
     })
+  } else if (tag) {
+    items.push({ name: '标签', href: '/tag' })
+    items.push({ name: tag, href: `/tag/${encodeURIComponent(tag)}` })
   }
   if (post?.title) {
     items.push({ name: post.title })
   }
+
+  return items
+}
+
+export default function Breadcrumbs({ post, category, tag }) {
+  const items = buildBreadcrumbItems({ post, category, tag })
 
   if (items.length < 2) return null
 

@@ -36,6 +36,17 @@ const CONFIG = {
   MAGZINE_POST_DETAIL_CATEGORY: true, // 文章显示分类
   MAGZINE_POST_DETAIL_TAG: true, // 文章显示标签
 
+  // 分类/标签聚合页导语。可在 Notion 配置中心用 JSON 对象覆盖同名配置。
+  MAGZINE_CATEGORY_DESCRIPTIONS: {
+    AI智能体:
+      '从本地大模型、Dify、Ollama 到智能体与微信集成，本分类记录可复现的安装、配置、验证与排错过程，适合希望把 AI 工具真正部署到业务场景的读者。',
+    投资理财:
+      '围绕价值投资、财富认知与风险管理整理读书和实践笔记，重点呈现决策框架、适用边界与个人复盘；内容仅供学习交流，不构成投资建议。',
+    读书笔记:
+      '按书目整理核心观点、个人理解和可执行启发，覆盖科技、心理、商业与个人成长，帮助读者先建立全貌，再选择值得精读的章节。'
+  },
+  MAGZINE_TAG_DESCRIPTIONS: {},
+
   // 文章页面联系卡
   MAGZINE_SOCIAL_CARD: true, // 是否显示右侧，点击加入社群按钮
   MAGZINE_SOCIAL_CARD_TITLE_1: '交流频道',

@@ -1,4 +1,4 @@
-import SEO, { generateStructuredData } from '@/components/SEO'
+import SEO, { generateStructuredData, getSEOMeta } from '@/components/SEO'
 import { render } from '@testing-library/react'
 
 const mockRouterState = {
@@ -30,6 +30,7 @@ jest.mock('@/blog.config', () => ({
     LINK: 'https://www.funshow.top',
     OG_IMAGE: '/bg_image.jpg',
     AUTHOR: 'FunShow',
+    THEME: 'magzine',
     BLOG_FAVICON: '/favicon.ico'
   }
 }))
@@ -44,6 +45,7 @@ jest.mock('@/lib/config', () => ({
       LINK: 'https://www.funshow.top',
       OG_IMAGE: '/bg_image.jpg',
       AUTHOR: 'FunShow',
+      THEME: 'magzine',
       AUTHOR_URL: '/about',
       AVATAR: '/avatar.png',
       FONT_URL: [],
@@ -120,6 +122,22 @@ describe('SEO component', () => {
       expect.stringContaining('noindex')
     )
   })
+
+  it('uses the magzine category introduction as the meta description', () => {
+    const meta = getSEOMeta(
+      {
+        siteInfo: props.siteInfo,
+        category: 'AI智能体',
+        postCount: 16,
+        posts: []
+      },
+      { route: '/category/[category]', query: {} },
+      {}
+    )
+
+    expect(meta.description).toContain('Dify')
+    expect(meta.description).toContain('排错')
+  })
 })
 describe('SEO structured data builder', () => {
   it('preserves article dates and publisher identity in the graph', () => {
@@ -160,5 +178,10 @@ describe('SEO structured data builder', () => {
       keywords: ['notion', 'seo']
     })
     expect(organization.logo.url).toBe('https://example.com/logo.png')
+    expect(
+      data['@graph']
+        .find(item => item['@type'] === 'BreadcrumbList')
+        .itemListElement.map(item => item.name)
+    ).toEqual(['首页', '分类', 'Engineering', 'Structured data in NotionNext'])
   })
 })

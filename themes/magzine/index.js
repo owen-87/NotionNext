@@ -21,6 +21,7 @@ import CTA from './components/CTA'
 import Catalog from './components/Catalog'
 import CatalogFloat from './components/CatalogFloat'
 import CategoryGroup from './components/CategoryGroup'
+import CollectionIntro from './components/CollectionIntro'
 import Footer from './components/Footer'
 import Header from './components/Header'
 import Hero from './components/Hero'
@@ -36,6 +37,7 @@ import TagGroups from './components/TagGroups'
 import TagItemMini from './components/TagItemMini'
 import TouchMeCard from './components/TouchMeCard'
 import CONFIG from './config'
+import { getCollectionDescription } from './content'
 import { Style } from './style'
 
 const ClerkSignIn = dynamic(
@@ -240,18 +242,35 @@ const LayoutPostList = props => {
     : tag
       ? `${tag} 标签文章`
       : '全部文章'
-  const description = category
-    ? `浏览「${category}」分类下的 ${postCount} 篇文章。`
-    : tag
-      ? `浏览带有「${tag}」标签的文章。`
-      : `浏览 ${siteInfo?.title || siteConfig('TITLE')} 发布的文章。`
+  const description = getCollectionDescription({
+    category,
+    tag,
+    postCount,
+    siteTitle: siteInfo?.title || siteConfig('TITLE'),
+    posts: props.posts,
+    categoryDescriptions: siteConfig(
+      'MAGZINE_CATEGORY_DESCRIPTIONS',
+      CONFIG.MAGZINE_CATEGORY_DESCRIPTIONS,
+      CONFIG
+    ),
+    tagDescriptions: siteConfig(
+      'MAGZINE_TAG_DESCRIPTIONS',
+      CONFIG.MAGZINE_TAG_DESCRIPTIONS,
+      CONFIG
+    )
+  })
 
   return (
     <div className='max-w-screen-3xl mx-auto w-full px-2 lg:px-0'>
-      {category && <Breadcrumbs category={category} />}
+      {(category || tag) && <Breadcrumbs category={category} tag={tag} />}
       <header className='py-8'>
         <h1 className='text-3xl font-bold'>{heading}</h1>
-        <p className='mt-3 text-gray-600 dark:text-gray-400'>{description}</p>
+        <CollectionIntro
+          category={category}
+          tag={tag}
+          description={description}
+          posts={props.posts}
+        />
       </header>
 
       {siteConfig('POST_LIST_STYLE', 'page', NOTION_CONFIG) === 'page' ? (

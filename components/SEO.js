@@ -12,6 +12,8 @@ import {
   toIsoDate
 } from '@/lib/seo'
 import { loadExternalResource } from '@/lib/utils'
+import MAGZINE_CONFIG from '@/themes/magzine/config'
+import { getCollectionDescription } from '@/themes/magzine/content'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useEffect } from 'react'
@@ -362,6 +364,7 @@ function buildBreadcrumbs(meta, canonicalUrl, siteUrl) {
   const category = meta.category
 
   if (meta.type === 'article' && category) {
+    breadcrumbs.push({ name: '分类', url: `${siteUrl}/category` })
     breadcrumbs.push({
       name: category,
       url: `${siteUrl}/category/${encodeURIComponent(category)}`
@@ -377,7 +380,7 @@ function buildBreadcrumbs(meta, canonicalUrl, siteUrl) {
 }
 
 export function getSEOMeta(props, router, locale = {}) {
-  const { post, siteInfo = {}, tag, category, page, postCount } = props
+  const { post, siteInfo = {}, tag, category, page, postCount, posts } = props
   const siteTitle = cleanSeoText(siteInfo?.title || siteConfig('TITLE'), 50)
   const siteDescription = cleanSeoText(
     siteInfo?.description || siteConfig('DESCRIPTION'),
@@ -387,6 +390,30 @@ export function getSEOMeta(props, router, locale = {}) {
   const searchLabel = locale?.NAV?.SEARCH || '搜索'
   const tagsLabel = locale?.COMMON?.TAGS || '标签'
   const categoryLabel = locale?.COMMON?.CATEGORY || '分类'
+  const useMagzineCollectionDescription =
+    siteConfig('THEME', BLOG.THEME) === 'magzine'
+  const collectionDescription = useMagzineCollectionDescription
+    ? cleanSeoText(
+        getCollectionDescription({
+          category,
+          tag,
+          postCount,
+          siteTitle,
+          posts,
+          categoryDescriptions: siteConfig(
+            'MAGZINE_CATEGORY_DESCRIPTIONS',
+            MAGZINE_CONFIG.MAGZINE_CATEGORY_DESCRIPTIONS,
+            MAGZINE_CONFIG
+          ),
+          tagDescriptions: siteConfig(
+            'MAGZINE_TAG_DESCRIPTIONS',
+            MAGZINE_CONFIG.MAGZINE_TAG_DESCRIPTIONS,
+            MAGZINE_CONFIG
+          )
+        }),
+        160
+      )
+    : null
 
   switch (router.route) {
     case '/':
@@ -420,7 +447,9 @@ export function getSEOMeta(props, router, locale = {}) {
     case '/category/[category]/page/[page]':
       return {
         title: `${category} | ${categoryLabel} | ${siteTitle}`,
-        description: `浏览 ${siteTitle}「${category}」分类下的 ${postCount || 0} 篇文章。`,
+        description:
+          collectionDescription ||
+          `浏览 ${siteTitle}「${category}」分类下的 ${postCount || 0} 篇文章。`,
         image: siteInfo?.pageCover,
         path: `/category/${encodeURIComponent(category || '')}`,
         type: 'website',
@@ -431,7 +460,9 @@ export function getSEOMeta(props, router, locale = {}) {
     case '/tag/[tag]/page/[page]':
       return {
         title: `${tag} | ${tagsLabel} | ${siteTitle}`,
-        description: `浏览 ${siteTitle} 中带有「${tag}」标签的文章。`,
+        description:
+          collectionDescription ||
+          `浏览 ${siteTitle} 中带有「${tag}」标签的文章。`,
         image: siteInfo?.pageCover,
         path: `/tag/${encodeURIComponent(tag || '')}`,
         type: 'website',
