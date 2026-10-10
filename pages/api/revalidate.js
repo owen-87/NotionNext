@@ -1,5 +1,10 @@
 import BLOG from '@/blog.config'
-import { cleanCache } from '@/lib/cache/local_file_cache'
+import {
+  normalizeRevalidationPath,
+  prepareRevalidation
+} from '@/lib/cache/revalidation'
+
+export const config = { maxDuration: 300 }
 
 /**
  * On-Demand Revalidation API
@@ -43,42 +48,47 @@ export default async function handler(req, res) {
   }
 
   const { path, paths, all } = req.body || {}
+  let targetPaths
+  try {
+    if (all !== undefined && typeof all !== 'boolean')
+      throw new Error('all must be a boolean')
+    if (
+      paths !== undefined &&
+      (!Array.isArray(paths) || paths.length === 0 || paths.length > 100)
+    )
+      throw new Error('paths must contain 1 to 100 paths')
+    if (
+      (all && (path !== undefined || paths !== undefined)) ||
+      (path !== undefined && paths !== undefined)
+    )
+      throw new Error('Use one of all, path or paths')
+    targetPaths = (paths || (path !== undefined ? [path] : ['/'])).map(
+      normalizeRevalidationPath
+    )
+  } catch (error) {
+    return res.status(400).json({ ok: false, message: error.message })
+  }
 
   try {
-    // 全站刷新：清除本地缓存 + revalidate 首页
-    if (all) {
-      cleanCache()
-      const results = []
-      try {
-        await res.revalidate('/')
-        results.push({ path: '/', revalidated: true })
-      } catch (e) {
-        results.push({ path: '/', revalidated: false, error: e.message })
-      }
-      return res.status(200).json({
-        ok: true,
-        message: 'Full site cache cleared. Homepage revalidated. Other pages will refresh on next visit.',
-        results
-      })
-    }
-
-    // 批量刷新
-    const targetPaths = paths || (path ? [path] : ['/'])
+    targetPaths = await prepareRevalidation({ all, paths: targetPaths })
     const results = []
 
     for (const p of targetPaths) {
-      const normalizedPath = normalizePath(p)
       try {
-        await res.revalidate(normalizedPath)
-        results.push({ path: normalizedPath, revalidated: true })
+        await res.revalidate(p)
+        results.push({ path: p, revalidated: true })
       } catch (e) {
-        results.push({ path: normalizedPath, revalidated: false, error: e.message })
+        results.push({ path: p, revalidated: false, error: e.message })
       }
     }
 
-    return res.status(200).json({
-      ok: true,
+    const ok = results.every(result => result.revalidated)
+    return res.status(ok ? 200 : 500).json({
+      ok,
       message: `Revalidated ${results.filter(r => r.revalidated).length}/${results.length} paths`,
+      failedPaths: results
+        .filter(result => !result.revalidated)
+        .map(result => result.path),
       results
     })
   } catch (error) {
@@ -89,17 +99,4 @@ export default async function handler(req, res) {
       error: error.message
     })
   }
-}
-
-/**
- * 标准化路径：确保以 / 开头，去掉尾部 /
- */
-function normalizePath(p) {
-  if (!p || typeof p !== 'string') return '/'
-  let normalized = p.trim()
-  if (!normalized.startsWith('/')) normalized = '/' + normalized
-  if (normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1)
-  }
-  return normalized
 }

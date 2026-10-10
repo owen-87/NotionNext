@@ -9,7 +9,8 @@ import '@/styles/notion.css' //  重写部分notion样式
 import useAdjustStyle from '@/hooks/useAdjustStyle'
 import { GlobalContextProvider } from '@/lib/global'
 import { isPrivateRoute } from '@/lib/seo'
-import { getBaseLayoutByTheme } from '@/themes/theme'
+import { getBaseLayoutByTheme, registerThemeLayouts } from '@/themes/theme'
+import * as MagzineTheme from '@/themes/magzine'
 import { useRouter } from 'next/router'
 import { useCallback, useEffect, useMemo } from 'react'
 import { getQueryParam } from '../lib/utils'
@@ -23,6 +24,7 @@ import dynamic from 'next/dynamic'
 const ClerkPrivateApp = dynamic(() => import('@/components/ClerkPrivateApp'), {
   ssr: false
 })
+registerThemeLayouts('magzine', MagzineTheme)
 const AppErrorBoundary = ErrorHandler.createErrorBoundary(
   <div
     style={{

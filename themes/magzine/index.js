@@ -56,39 +56,6 @@ const DashboardBody = dynamic(
   () => import('@/components/ui/dashboard/DashboardBody'),
   { ssr: false }
 )
-const IndexSkeleton = () => (
-  <div className='pt-10 md:pt-18'>
-    <div className='w-full bg-[#f6f6f1] dark:bg-black'>
-      <div className='mx-auto w-full max-w-screen-3xl px-4 py-10 lg:px-0'>
-        <div className='grid gap-10 xl:grid-cols-2'>
-          <section className='space-y-5'>
-            <div className='h-80 w-full animate-pulse bg-gray-200 dark:bg-gray-800' />
-            <div className='h-4 w-24 animate-pulse bg-gray-200 dark:bg-gray-800' />
-            <div className='h-10 w-4/5 animate-pulse bg-gray-200 dark:bg-gray-800' />
-            <div className='h-4 w-2/3 animate-pulse bg-gray-200 dark:bg-gray-800' />
-          </section>
-          <section className='space-y-6'>
-            <div className='h-48 w-full animate-pulse bg-gray-200 dark:bg-gray-800' />
-            {[0, 1].map(item => (
-              <div
-                key={item}
-                className='flex gap-6 border-t border-gray-300 pt-6 dark:border-gray-800'
-              >
-                <div className='min-w-0 flex-1 space-y-3'>
-                  <div className='h-4 w-20 animate-pulse bg-gray-200 dark:bg-gray-800' />
-                  <div className='h-6 w-4/5 animate-pulse bg-gray-200 dark:bg-gray-800' />
-                  <div className='h-4 w-2/3 animate-pulse bg-gray-200 dark:bg-gray-800' />
-                </div>
-                <div className='h-32 w-32 shrink-0 animate-pulse bg-gray-200 dark:bg-gray-800' />
-              </div>
-            ))}
-          </section>
-        </div>
-      </div>
-    </div>
-  </div>
-)
-
 const SlugSkeleton = () => (
   <div className='w-full max-w-screen-3xl mx-auto'>
     <div className='flex flex-col gap-y-4 py-4 px-2 lg:px-0'>
@@ -179,7 +146,17 @@ const LayoutIndex = props => {
   const { siteInfo } = props
 
   if (posts.length === 0) {
-    return <IndexSkeleton />
+    return (
+      <header className='max-w-screen-3xl mx-auto px-2 py-10 lg:px-0'>
+        <h1 className='text-4xl font-bold'>
+          {siteInfo?.title || siteConfig('TITLE')}
+        </h1>
+        <p className='mt-3 text-lg text-gray-600 dark:text-gray-400'>
+          {siteInfo?.description || siteConfig('DESCRIPTION')}
+        </p>
+        <p className='mt-6'>暂无公开文章。</p>
+      </header>
+    )
   }
 
   // ===== 1. Hero区域 =====
@@ -557,8 +534,6 @@ const LayoutCategoryIndex = props => {
               <SmartLink
                 key={category.name}
                 href={`/category/${category.name}`}
-                passHref
-                legacyBehavior
               >
                 <div
                   className={

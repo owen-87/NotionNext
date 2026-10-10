@@ -8,14 +8,12 @@ import { getQueryParam, getQueryVariable, isBrowser } from '../lib/utils'
 export const { THEMES = [] } = getConfig()?.publicRuntimeConfig || {}
 const baseLayoutCache = new Map()
 const layoutByThemeCache = new Map()
+const synchronousThemes = new Map()
 let domFixTimer = null
 
 const LayoutLoading = () => (
   <div className='min-h-screen w-full bg-[#f6f6f1] dark:bg-black' />
 )
-
-const EmptyBaseLayout = ({ children }) => <>{children}</>
-const EmptyPageLayout = () => null
 
 const IndexLayoutLoading = () => (
   <div className='pt-10 md:pt-18 w-full bg-[#f6f6f1] dark:bg-black'>
@@ -32,7 +30,8 @@ const IndexLayoutLoading = () => (
           {[0, 1].map(item => (
             <div
               key={item}
-              className='flex gap-6 border-t border-gray-300 pt-6 dark:border-gray-800'>
+              className='flex gap-6 border-t border-gray-300 pt-6 dark:border-gray-800'
+            >
               <div className='min-w-0 flex-1 space-y-3'>
                 <div className='h-6 w-4/5 animate-pulse bg-gray-200 dark:bg-gray-800' />
                 <div className='h-4 w-2/3 animate-pulse bg-gray-200 dark:bg-gray-800' />
@@ -53,7 +52,8 @@ const IndexLayoutLoading = () => (
           {[0, 1, 2, 3].map(item => (
             <div
               key={item}
-              className='space-y-4 border-t border-gray-300 pt-5 dark:border-gray-800'>
+              className='space-y-4 border-t border-gray-300 pt-5 dark:border-gray-800'
+            >
               <div className='h-5 w-3/4 animate-pulse bg-gray-200 dark:bg-gray-800' />
               <div className='h-4 w-24 animate-pulse bg-gray-200 dark:bg-gray-800' />
             </div>
@@ -106,6 +106,7 @@ const scheduleFixThemeDOM = (delay = 120) => {
 }
 
 async function importThemeConfig(themeFolderName) {
+  if (themeFolderName === 'magzine') return require('./magzine/config').default
   try {
     const mod = await import(`@/themes/${themeFolderName}`)
     return getThemeExport(mod, 'THEME_CONFIG')
@@ -120,7 +121,7 @@ async function importThemeLayout(themeFolderName, layoutName) {
     const mod = await import(`@/themes/${themeFolderName}`)
     return (
       getThemeExport(mod, layoutName) ||
-      getThemeExport(mod, 'LayoutSlug') ||
+      (layoutName !== 'LayoutBase' && getThemeExport(mod, 'LayoutSlug')) ||
       null
     )
   } catch (err) {
@@ -129,7 +130,7 @@ async function importThemeLayout(themeFolderName, layoutName) {
   }
 }
 
-async function resolveThemeLayout(themeName, layoutName, emptyLayout) {
+async function resolveThemeLayout(themeName, layoutName) {
   let Layout = await importThemeLayout(themeName, layoutName)
   if (Layout) return Layout
 
@@ -144,8 +145,21 @@ async function resolveThemeLayout(themeName, layoutName, emptyLayout) {
     }
   }
 
-  console.warn(`[theme] "${themeName}" missing "${layoutName}", using empty layout.`)
-  return emptyLayout
+  throw new Error(`[theme] "${themeName}" cannot load "${layoutName}".`)
+}
+
+// The published theme must be available during the very first server render.
+// Creating next/dynamic inside render can cache a loading shell during ISR.
+function getMagzineLayout(layoutName) {
+  const Layout = getThemeExport(synchronousThemes.get('magzine'), layoutName)
+  if (!Layout) throw new Error(`[theme] magzine missing "${layoutName}".`)
+  return Layout
+}
+
+// _app imports the published theme statically and registers it before render.
+// Keep data/config utilities free of a static dependency on the rendering tree.
+export function registerThemeLayouts(themeName, layouts) {
+  synchronousThemes.set(themeName, layouts)
 }
 
 /**
@@ -169,7 +183,9 @@ export const getThemeConfig = async themeQuery => {
       return cfg
     }
   }
-  console.warn('[theme] No theme configuration could be loaded, using empty config.')
+  console.warn(
+    '[theme] No theme configuration could be loaded, using empty config.'
+  )
   return {}
 }
 
@@ -191,12 +207,12 @@ const getCurrentTheme = (router, fallbackTheme) => {
  */
 export const getBaseLayoutByTheme = theme => {
   const normalizedTheme = normalizeThemeName(theme)
+  if (normalizedTheme === 'magzine') return getMagzineLayout('LayoutBase')
   if (baseLayoutCache.has(normalizedTheme)) {
     return baseLayoutCache.get(normalizedTheme)
   }
   const DynamicBaseLayout = dynamic(
-    () =>
-      resolveThemeLayout(normalizedTheme, 'LayoutBase', EmptyBaseLayout),
+    () => resolveThemeLayout(normalizedTheme, 'LayoutBase'),
     { ssr: true }
   )
   baseLayoutCache.set(normalizedTheme, DynamicBaseLayout)
@@ -222,6 +238,7 @@ export const DynamicLayout = props => {
 export const useLayoutByTheme = ({ layoutName, theme }) => {
   const router = useRouter()
   const themeQuery = getCurrentTheme(router, theme)
+  if (themeQuery === 'magzine') return getMagzineLayout(layoutName)
   const cacheKey = `${themeQuery}:${layoutName}`
 
   if (layoutByThemeCache.has(cacheKey)) {
@@ -229,8 +246,7 @@ export const useLayoutByTheme = ({ layoutName, theme }) => {
     return layoutByThemeCache.get(cacheKey)
   }
 
-  const loadLayout = () =>
-    resolveThemeLayout(themeQuery, layoutName, EmptyPageLayout)
+  const loadLayout = () => resolveThemeLayout(themeQuery, layoutName)
   const DynamicLayoutComponent = dynamic(loadLayout, {
     ssr: true,
     loading: getLayoutLoading(layoutName)
